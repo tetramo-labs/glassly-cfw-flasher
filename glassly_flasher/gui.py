@@ -61,12 +61,12 @@ class App:
         for button in self.mode_buttons.values():
             button.pack(anchor='w')
 
-        box = ttk.LabelFrame(frame, text='3. Put the controller in update mode', padding=10)
+        box = ttk.LabelFrame(frame, text='3. Get the device ready', padding=10)
         box.pack(fill='x', pady=(10, 0))
         self.instructions = ttk.Label(box, wraplength=WRAP)
         self.instructions.pack(anchor='w')
-        ttk.Label(box, text='Connect only the controller you are flashing. You can start the flasher first; it waits '
-                            'for the controller.', wraplength=WRAP, foreground='#555').pack(anchor='w', pady=(6, 0))
+        ttk.Label(box, text='Connect only the device you are flashing. You can start the flasher first; it waits '
+                            'for the device.', wraplength=WRAP, foreground='#555').pack(anchor='w', pady=(6, 0))
 
         self.risk = ttk.Checkbutton(frame, variable=self.accept, command=self.refresh, text=(
             'I understand this firmware is experimental and a failed flash could leave the controller unusable.'))
@@ -211,7 +211,7 @@ class App:
             self.status.set({'install': 'Glassly firmware installed', 'restore': 'Official firmware restored',
                              'backup': 'Backup complete', 'restore-backup': 'Backup restored'}[mode])
             self.result.set({'install': device.after_install, 'restore': device.after_restore,
-                             'backup': 'Nothing was written. Unplug the controller and switch it off and on.',
+                             'backup': device.after_backup,
                              'restore-backup': 'Unplug the controller and switch it off and on. It is back on the '
                                                'application from the backup.'}[mode])
         else:

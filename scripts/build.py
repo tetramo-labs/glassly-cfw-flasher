@@ -22,6 +22,9 @@ def main():
     if sys.platform == 'darwin':
         run('clang', '-fobjc-arc', '-dynamiclib', '-mmacosx-version-min=12.0', '-framework', 'Foundation',
             '-framework', 'IOKit', '-framework', 'IOUSBHost', 'native/jl_usb.m', '-o', 'native/libjl_usb.dylib')
+        run('clang', '-fobjc-arc', '-dynamiclib', '-mmacosx-version-min=12.0', '-framework', 'Foundation',
+            '-framework', 'IOBluetooth', '-framework', 'CoreBluetooth', 'native/memomind_rfcomm.m',
+            '-o', 'native/libmemomind_rfcomm.dylib')
     run(sys.executable, '-m', 'PyInstaller', '--noconfirm', '--clean', '--distpath', 'dist/pyinstaller',
         '--workpath', 'build/pyinstaller', 'packaging/glassly-cfw-flasher.spec')
     built = ROOT / 'dist/pyinstaller'

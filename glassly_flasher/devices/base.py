@@ -26,7 +26,7 @@ class Reporter:
     # Only call while nothing has been written; a cancel mid-write must never abort the flash.
     def check_cancel(self):
         if self.cancelled():
-            raise Cancelled('Cancelled. Nothing was written to the controller.')
+            raise Cancelled('Cancelled. Nothing was written to the device.')
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,7 @@ class Device:
     elevate: frozenset
     tested: str
     modes: tuple = ('install', 'restore', 'backup')
+    after_backup: str = 'Nothing was written. Unplug the controller and switch it off and on.'
 
     def run(self, mode, output, reporter, backup=None):
         extra = {'backup': backup} if backup is not None else {}

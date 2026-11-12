@@ -27,6 +27,12 @@ be relaxed to get past a refusal.
 - **Every write mode keeps the way back.** Backups are taken before any erase and the app can
   restore a controller's own earlier backup; a session's `flash-pass1.bin` is the recovery image
   of record. Never add a mode that writes without a backup.
+- **Documented exception: MemoMind One.** Its stock firmware has no command to read its flash, and
+  the official image has never been flashed back through its updater on hardware, so Install has no
+  way back and Restore is not offered. The update itself is the vendor's own staged, CRC-checked OTA
+  (an interrupted transfer leaves the old firmware booting), and the identity gate admits only the
+  exact model, hardware, firmware and Glassly revisions the research captures show were flashed from.
+  Do not widen it, and do not add Restore until the official image has gone back on a developer's unit.
 - **Refusals name what was seen.** Identity refusals print the values the controller reported
   (flash part, layout, application build) so a new kind can be reviewed from the message alone.
 

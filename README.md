@@ -1,7 +1,9 @@
 # Glassly CFW Flasher
 
 One desktop app that installs the Glassly button firmware on four game controllers, so they work as
-controllers in the Glassly App on iOS and Android. It can also put the official firmware back.
+controllers in the Glassly App on iOS and Android. It can also put the official firmware back. The same
+app installs the Glassly firmware on MemoMind One smart glasses, over Bluetooth instead of USB; see
+[MemoMind One glasses](#memomind-one-glasses).
 
 The firmware is built into the app. Nothing is downloaded while you flash, and every image is checked
 against a pinned SHA256 before it goes near a controller.
@@ -12,6 +14,7 @@ against a pinned SHA256 before it goes near a controller.
 | 8BitDo Micro | Official v1.05 | Yes |
 | IINE Gamebrick Mini (L1161 / L1162) | Factory firmware or the official IINE update, 2025 production run only (flash part `cd7113`, two-slot layout). Newer units (flash part `cd7013`, IINE's current layout) are recognised but only backed up; see below | Yes |
 | IINE Mini Retro Ananke Gen 2, Purple / Gray / Cream Yellow (L1254 / L1255 / L1277) | Official V0900 | Yes |
+| MemoMind One glasses (H001Y, hardware 2.1.2) | Official 1.0.3.127 or 1.0.2.151, or a Glassly revision it has installed over before. No way back to the official firmware yet | Identity only; the firmware cannot be read out |
 
 This is experimental firmware. Each controller has been flashed and verified from macOS with the research
 flasher this app is ported from. The app itself, and every Windows and Linux path, has not yet been run
@@ -115,6 +118,62 @@ keys and pairing data; keep them private.
 - Anything that stops after writing has begun: leave the controller plugged in, keep the backup folder and
   open an issue with the session's `operation.log`.
 
+## MemoMind One glasses
+
+The flasher installs Glassly firmware revision 25 (`GLASSLYCFW/25`), the build the Glassly App connects to,
+including from an iPhone over Bluetooth LE. It goes through the glasses' own Bluetooth Classic updater, so it needs a computer with
+Bluetooth and no cable.
+
+### Pair the glasses with the computer first
+
+Charge the glasses and switch them on. Disconnect them from the MemoMind app and switch Bluetooth off on the phone
+they use, then pair them with this computer. They appear as **MemoMind One**.
+
+- **macOS**: System Settings > Bluetooth, then **Connect** next to MemoMind One. The first time you press Start,
+  macOS asks whether Glassly CFW Flasher may use Bluetooth; allow it.
+- **Windows**: Settings > Bluetooth & devices > Add device > Bluetooth, then MemoMind One.
+- **Linux**: your desktop's Bluetooth settings, or `bluetoothctl` with `scan on`, `pair <address>` and
+  `trust <address>`. The flasher needs BlueZ (`bluetoothctl`); `sdptool` is used when installed. No password is
+  asked for: Bluetooth needs no administrator rights.
+
+Pair only one pair of MemoMind glasses with the computer. The flasher refuses if it finds none or more than one, and
+waits up to ten minutes for them to be paired.
+
+### What Install does
+
+1. Reads the glasses' identity and installed firmware over one connection and saves them to the session folder
+   (`device-info.json`, `capabilities.json`). It writes only to glasses that report model H001Y, hardware 2.1.2,
+   front 1.3 and official firmware 1.0.3.127 or 1.0.2.151, with the MAC address they are paired under: the same
+   check the research flasher makes. Glasses already on Glassly firmware are accepted only on a revision the
+   firmware has been installed over before (1, 3 to 6, 10, 11, 14, 16 to 20 and 22); revision 25 is left alone.
+2. Eight seconds later, on a second connection, it checks the identity again, tells the glasses an update is coming,
+   opens their update service and sends the image in the blocks the glasses ask for (about 550 blocks; a few
+   minutes), then asks them to restart. Nothing is resent: any unexpected reply stops the transfer.
+3. It waits up to five minutes for the glasses to come back as `GLASSLYCFW/25`. Wake them if their display stays
+   dark.
+
+Then remove the glasses from the computer's Bluetooth settings, pair them in your phone's Bluetooth settings and add
+MemoMind One in the Glassly App.
+
+If the transfer stops partway (out of range, flat battery, the computer goes to sleep), the glasses keep running the
+firmware they had: they only switch after receiving and checking the whole image. On the developer's glasses this
+happened twice, once after 16 KiB and once after 1.19 MB; the second time the glasses also kept the partial
+transfer, and a later run continued from where it stopped. Run Install again; it continues the same way when the
+glasses still hold the partial transfer, and starts over otherwise. What happens when the glasses lose power after
+the last block, while they check and switch to the new firmware, has not been seen.
+
+**Back up only** reads the identity and installed firmware and writes nothing. The glasses' firmware has no command
+that reads their flash back, so no firmware image is saved. **Put the official firmware back** is not offered: the
+official image has not yet been sent back through the updater on real glasses.
+
+### What has been tested
+
+The install sequence was run from macOS by the research tool this code is ported from: revision 25 was installed and
+booted on one pair of glasses on 2026-11-11, after many earlier revisions on the same glasses. This app's own
+Bluetooth code has not yet been run against glasses on any computer; its macOS helper uses the same IOBluetooth calls
+as the research tool, and its tests replay the recorded revision 25 install, an interrupted and continued install and
+the MemoMind app's own update, byte for byte. Windows and Linux Bluetooth have not been tried on glasses.
+
 ## Command line
 
 The same app runs without a window. On Linux:
@@ -122,6 +181,8 @@ The same app runs without a window. On Linux:
 ```sh
 sudo ./Glassly-CFW-Flasher-Linux-x86_64 --cli <zero2|micro|gamebrick|ananke> <install|restore|backup> --i-accept-the-risk
 ```
+
+The MemoMind One glasses (`memomind`, `install` or `backup`) need no `sudo` on any system.
 
 On macOS the executable is `/Applications/Glassly CFW Flasher.app/Contents/MacOS/Glassly CFW Flasher`; it
 needs `sudo` only for the IINE controllers. The Windows build has no console, so on Windows run the command
@@ -160,6 +221,7 @@ The firmware is developed in:
 - [glassly-8bitdo-micro](https://github.com/tetramo-labs/glassly-8bitdo-micro)
 - [glassly-gamebrick-mini-cfw](https://github.com/tetramo-labs/glassly-gamebrick-mini-cfw)
 - [glassly-ananke-cfw](https://github.com/tetramo-labs/glassly-ananke-cfw)
+- [glassly-memomind-one-cfw](https://github.com/tetramo-labs/glassly-memomind-one-cfw)
 
 The IINE USB code uses parts of kagaimiq's MIT-licensed [jl-misctools](https://github.com/kagaimiq/jl-misctools)
 and [jl-uboot-tool](https://github.com/kagaimiq/jl-uboot-tool), vendored under `third_party/` with their

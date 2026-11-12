@@ -1,4 +1,4 @@
-Installs the Glassly button firmware on the 8BitDo Zero 2, 8BitDo Micro, IINE Gamebrick Mini and IINE Ananke Gen 2, or puts the official firmware back. The firmware is built in; nothing is downloaded while flashing.
+Installs the Glassly firmware on the 8BitDo Zero 2, 8BitDo Micro, IINE Gamebrick Mini, IINE Ananke Gen 2 and MemoMind One glasses, or puts the official firmware back where that has been verified. The firmware is built in; nothing is downloaded while flashing.
 
 | Computer | Download |
 | --- | --- |
