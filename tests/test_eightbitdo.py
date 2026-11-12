@@ -160,6 +160,18 @@ class FakeDeviceTests(unittest.TestCase):
             self.run_session(profile, 'restore', device)
             self.assertEqual(bytes(device.application), official)
 
+    def test_backup_only_writes_nothing(self):
+        for profile in (zero2.PROFILE, micro.PROFILE):
+            official = image(profile, 'restore')[1]
+            device = FakeBootloader(profile, official)
+            with tempfile.TemporaryDirectory() as folder:
+                result = session(profile, 'backup', device, Path(folder), QuietReporter(), None)
+                files = sorted(p.name for p in Path(folder).iterdir())
+            self.assertEqual(files, ['before-application.bin', 'before-metadata.bin', 'transport.log'])
+            self.assertEqual(result['baseline'], f'official {profile.official}')
+            self.assertFalse({cmd for cmd, _ in device.commands} & {2, 3, 4})
+            self.assertEqual(bytes(device.application), official)
+
     def test_unknown_baseline_is_never_erased(self):
         device = FakeBootloader(zero2.PROFILE, b'\x42' * zero2.PROFILE.size)
         with self.assertRaisesRegex(FlashError, 'does not recognise'):

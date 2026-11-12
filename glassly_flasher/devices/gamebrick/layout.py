@@ -16,9 +16,13 @@ HEADER_KEY = 0xffff
 STORAGE_FLAGS = (0x12, 0x92)  # VM, BTIF, EXIF, USERIF: partitions the application owns at runtime
 PRODUCTION_2025 = '384c62f51d2c68e1d3199bdbc6599ff139cd4c66defeafa298411eb47de96b7a'
 IINE_UPDATE = '44db9021b1dbf99f282741d18d66744c09b1909adb96c38a4a62d1b051d908fd'
-# Only the 2025 production layout has booted the Glassly and official applications on hardware. A unit on
-# the IINE update layout (flash part cd7013) showed no lights after a verified Glassly flash on 2026-11-13.
-BOOT_VERIFIED_LAYOUTS = {PRODUCTION_2025}
+# Combinations of flash layout and flash part on which the Glassly and official applications have been
+# flashed and seen booting. Any other kind may only be backed up and have its own backup restored: the
+# first flash of a new kind happens on a developer-owned unit with recovery proven, never on a user's.
+# A unit on the IINE update layout with flash part cd7013 showed no lights after a verified flash on
+# 2026-11-13 and could not be recovered.
+HARDWARE_VERIFIED = {(PRODUCTION_2025, 0xcd7113)}
+LAYOUTS = {PRODUCTION_2025}
 LAYOUTS = {
     '384c62f51d2c68e1d3199bdbc6599ff139cd4c66defeafa298411eb47de96b7a':
         'two application slots, VM at 0x7a000 (2025 production units)',

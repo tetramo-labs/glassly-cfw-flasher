@@ -8,9 +8,9 @@ against a pinned SHA256 before it goes near a controller.
 
 | Controller | Accepted starting firmware | Back up only |
 | --- | --- | --- |
-| 8BitDo Zero 2 (YC3121 board) | Official v1.08 | No (a backup is still taken before every flash) |
-| 8BitDo Micro | Official v1.05 | No (a backup is still taken before every flash) |
-| IINE Gamebrick Mini (L1161 / L1162) | Factory firmware or the official IINE update on the 2025 production layout. Units on IINE's current layout (VM at `0x34000`) are recognised but refused for install until the 2026-11-13 no-boot is understood; their own backup can be restored | Yes |
+| 8BitDo Zero 2 (YC3121 board) | Official v1.08 | Yes |
+| 8BitDo Micro | Official v1.05 | Yes |
+| IINE Gamebrick Mini (L1161 / L1162) | Factory firmware or the official IINE update, 2025 production run only (flash part `cd7113`, two-slot layout). Newer units (flash part `cd7013`, IINE's current layout) are recognised but only backed up; see below | Yes |
 | IINE Mini Retro Ananke Gen 2, Purple / Gray / Cream Yellow (L1254 / L1255 / L1277) | Official V0900 | Yes |
 
 This is experimental firmware. Each controller has been flashed and verified from macOS with the research
@@ -77,6 +77,16 @@ a desktop, use the [command line](#command-line) with `sudo`.
 
 Cancel works while the app is still waiting for the controller. Once it starts writing, it finishes; closing
 the window mid-flash is blocked.
+
+### What the app refuses, and why
+
+On 2026-11-13 a tester's Gamebrick of a kind the firmware had never been flashed on (a newer
+production run with a different flash layout and flash part) passed every identity check, took a
+fully verified flash, and then never came up again. Since then the app only installs or restores on
+kinds of unit the firmware has been flashed and seen booting on. Any other unit can be backed up and
+have its own backup put back, nothing more; the message names what the controller reported so the
+kind can be reviewed. Send that backup folder rather than looking for a way around the refusal: the
+first flash on a new kind of unit is done on a developer-owned controller, never on yours.
 
 ### What the app checks
 

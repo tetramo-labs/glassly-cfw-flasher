@@ -160,6 +160,15 @@ class BundledApplicationTests(unittest.TestCase):
             self.assertEqual(report['state'], 'unknown')
             self.assertEqual((Path(folder)/'flash-pass2.bin').read_bytes(), image)
 
+    def test_unverified_flash_part_may_be_backed_up_but_not_flashed(self):
+        if not FACTORY.exists():
+            self.skipTest('unit backup unavailable')
+        device = FakeBD19(FACTORY.read_bytes(), flash_id=0xcd7013)
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(FlashError, 'not been flashed and seen booting.*cd7013'):
+                quiet(run, 'install', Path(folder), Recorder(), link=device)
+        self.assertEqual(device.writes(), [])
+
     def test_other_flash_chip_is_refused_with_its_identity(self):
         device = FakeBD19(bytes(SIZE), flash_id=0x0b4013)
         with tempfile.TemporaryDirectory() as folder:
@@ -183,7 +192,7 @@ class PlanTests(unittest.TestCase):
         cls.factory = FACTORY.read_bytes()
         cls.custom = CUSTOM.read_bytes()
         cls.oem = official_application()
-        cls.stock = plan(cls.factory, cls.oem, 'restore')['target']
+        cls.stock = plan(cls.factory, cls.oem, 'restore', flash_id=0xcd7113)['target']
 
     def test_layouts_and_applications_classify_every_known_state(self):
         self.assertEqual(digest(self.stock), UNIT2_STOCK_SHA)
@@ -202,43 +211,43 @@ class PlanTests(unittest.TestCase):
             self.assertEqual(classify(bytes(bad)), 'unknown')
 
     def test_plans_from_every_state_reach_the_reviewed_images(self):
-        from_factory = plan(self.factory, self.oem, 'install')
+        from_factory = plan(self.factory, self.oem, 'install', flash_id=0xcd7113)
         self.assertEqual(from_factory['state'], 'factory')
         self.assertEqual(from_factory['target'], self.custom)
         self.assertEqual(len(from_factory['changed_sectors']), 50)
-        from_stock = plan(self.stock, self.oem, 'install')
+        from_stock = plan(self.stock, self.oem, 'install', flash_id=0xcd7113)
         self.assertEqual(from_stock['target'], self.custom)
         self.assertEqual([hex(a) for a in from_stock['changed_sectors']],
                          ['0x2000', '0x6000', '0x7000', '0xd000', '0x11000', '0x12000', '0x32000', '0x33000'])
-        self.assertEqual(plan(self.custom, self.oem, 'install')['changed_sectors'], [])
-        self.assertEqual(plan(self.custom, self.oem, 'restore')['target'], self.stock)
+        self.assertEqual(plan(self.custom, self.oem, 'install', flash_id=0xcd7113)['changed_sectors'], [])
+        self.assertEqual(plan(self.custom, self.oem, 'restore', flash_id=0xcd7113)['target'], self.stock)
         drifted = bytearray(self.factory)
         drifted[0x7a123] ^= 0xFF
-        live = plan(bytes(drifted), self.oem, 'install')
+        live = plan(bytes(drifted), self.oem, 'install', flash_id=0xcd7113)
         self.assertEqual(live['target'][0x7a000:], bytes(drifted)[0x7a000:])
         self.assertEqual(live['target'][:0x7a000], self.custom[:0x7a000])
         for image in (WITHDRAWN.read_bytes(), bytes(b ^ (i == 0x2140) for i, b in enumerate(self.factory))):
             with self.assertRaisesRegex(RuntimeError, 'Unrecognised'):
-                plan(image, self.oem, 'install')
+                plan(image, self.oem, 'install', flash_id=0xcd7113)
 
     def test_programs_factory_to_custom_and_back_with_full_verification(self):
         oem = self.oem
         device = NOR(self.factory, range(0, SIZE, SECTOR))
         saved = {}
-        report = quiet(program_with_plan, device, lambda c: (c, plan(c, oem, 'install')['target']), saved.__setitem__)
+        report = quiet(program_with_plan, device, lambda c: (c, plan(c, oem, 'install', flash_id=0xcd7113)['target']), saved.__setitem__)
         self.assertTrue(report['full_readback_verified'])
         self.assertEqual(bytes(device.data), self.custom)
         self.assertEqual(saved['flash-pass1.bin'], self.factory)
         self.assertEqual(device.erased[-1], 0x2000, 'the header sector is committed last')
         self.assertFalse(device.writes_enabled)
-        again = quiet(program_with_plan, device, lambda c: (c, plan(c, oem, 'install')['target']), saved.__setitem__)
+        again = quiet(program_with_plan, device, lambda c: (c, plan(c, oem, 'install', flash_id=0xcd7113)['target']), saved.__setitem__)
         self.assertEqual(again['writes'], 0)
-        quiet(program_with_plan, device, lambda c: (c, plan(c, oem, 'restore')['target']), saved.__setitem__)
+        quiet(program_with_plan, device, lambda c: (c, plan(c, oem, 'restore', flash_id=0xcd7113)['target']), saved.__setitem__)
         self.assertEqual(bytes(device.data), self.stock)
 
     def test_every_page_failure_leaves_protected_sectors_and_restores(self):
-        target = plan(self.stock, self.oem, 'install')['target']
-        sectors = plan(self.stock, self.oem, 'install')['changed_sectors']
+        target = plan(self.stock, self.oem, 'install', flash_id=0xcd7113)['target']
+        sectors = plan(self.stock, self.oem, 'install', flash_id=0xcd7113)['changed_sectors']
         baseline = NOR(self.stock, sectors)
         baseline.writes_enabled = True
         quiet(program_image, baseline, self.stock, target, 'install')
@@ -268,7 +277,7 @@ class PlanTests(unittest.TestCase):
                 return super().read(a, n)
         shaky = Unstable(self.factory, range(0, SIZE, SECTOR))
         with self.assertRaisesRegex(RuntimeError, 'changed between preflight reads'):
-            quiet(program_with_plan, shaky, lambda c: (c, plan(c, oem, 'install')['target']), lambda n, d: None)
+            quiet(program_with_plan, shaky, lambda c: (c, plan(c, oem, 'install', flash_id=0xcd7113)['target']), lambda n, d: None)
         self.assertFalse(shaky.erased)
 
     def test_run_installs_restores_and_is_idempotent(self):
@@ -329,7 +338,7 @@ class IineLayoutTests(unittest.TestCase):
         for mode in ('install', 'restore'):
             device = FakeBD19(flashed, absent_polls=1)
             with tempfile.TemporaryDirectory() as folder:
-                with self.assertRaisesRegex(FlashError, 'not been shown to boot'):
+                with self.assertRaisesRegex(FlashError, 'not been flashed and seen booting'):
                     quiet(run, mode, Path(folder), Recorder(), link=device)
             self.assertEqual(device.writes(), [])
         device = FakeBD19(flashed, absent_polls=1)

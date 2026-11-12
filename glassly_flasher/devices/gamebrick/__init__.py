@@ -72,7 +72,7 @@ def run(mode, output, reporter, link=None, backup=None):
                 planned = {}
 
                 def source_and_target(current):
-                    planned.update(plan(current, oem, mode, custom, backup))
+                    planned.update(plan(current, oem, mode, custom, backup, device.flash_id))
                     print(f'Controller firmware: {planned["state"]}; {len(planned["changed_sectors"])} sector(s) to write.', flush=True)
                     save('stock.bin', planned['stock'])
                     save('target.bin', planned['target'])

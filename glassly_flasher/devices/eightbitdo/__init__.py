@@ -178,6 +178,10 @@ def session(profile, mode, link, output, reporter, image):
         summary = dict(device=profile.name, mode=mode, before_sha256=sha256(before), baseline=baseline,
                        version_record=u32(metadata, 0x40))
         reporter.log(f'Backup saved ({baseline} firmware, SHA256 {sha256(before)}).')
+        if mode == 'backup':
+            boot.exchange(7, 0, 0, 0, wait=False)
+            reporter.log('Nothing was written; restart sent.')
+            return summary
         dat, plain = image
         if baseline == 'unknown':
             raise FlashError('This controller is running firmware the flasher does not recognise, so nothing was '
@@ -220,9 +224,9 @@ def session(profile, mode, link, output, reporter, image):
 
 
 def run(profile, mode, output, reporter, connect=None):
-    if mode not in profile.images:
-        raise FlashError(f'{profile.name} supports install and restore only')
-    image = load_image(profile, profile.images[mode])
+    if mode not in ('install', 'restore', 'backup'):
+        raise FlashError(f'{profile.name} does not support {mode}')
+    image = load_image(profile, profile.images[mode]) if mode != 'backup' else None
     if connect is None:
         from . import hidlink
         hidlink.refuse_vendor_updater()

@@ -16,7 +16,6 @@ DEVICES = {d.key: d for d in [
         after_restore='Unplug the cable and switch the controller on. It is back on the official 8BitDo firmware.',
         module='glassly_flasher.devices.eightbitdo.zero2',
         elevate=frozenset({'linux'}),
-        modes=('install', 'restore'),
         tested='Verified on one controller from macOS with the research flasher this app is ported from. '
                'Windows and Linux have not been tried on a controller yet.',
     ),
@@ -31,7 +30,6 @@ DEVICES = {d.key: d for d in [
         after_restore='Unplug the cable. The controller is back on the official 8BitDo firmware.',
         module='glassly_flasher.devices.eightbitdo.micro',
         elevate=frozenset({'linux'}),
-        modes=('install', 'restore'),
         tested='Verified on two controllers from macOS with the research flasher this app is ported from. '
                'Windows and Linux have not been tried on a controller yet.',
     ),
