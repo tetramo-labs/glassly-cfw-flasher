@@ -312,29 +312,33 @@ class IineLayoutTests(unittest.TestCase):
                                           (0x7d000, 0x7f000), (0x7f000, 0x80000)])
 
     def test_plans_keep_everything_outside_the_application_area(self):
-        install = plan(self.image, self.oem, 'install')
+        install = plan(self.image, self.oem, 'install', allow_unverified=True)
         target = install['target']
         self.assertEqual((install['state'], classify(target)), ('factory-2025-09', 'custom'))
         self.assertEqual(Layout(target).application(), glassly_application())
         self.assertEqual(target[:0x2000], self.image[:0x2000])
         self.assertEqual(target[0x34000:], self.image[0x34000:])
         self.assertTrue(install['changed_sectors'] and all(0x2000 <= a < 0x34000 for a in install['changed_sectors']))
-        self.assertEqual(plan(target, self.oem, 'install')['changed_sectors'], [])
-        restore = plan(target, self.oem, 'restore')
+        self.assertEqual(plan(target, self.oem, 'install', allow_unverified=True)['changed_sectors'], [])
+        restore = plan(target, self.oem, 'restore', allow_unverified=True)
         self.assertEqual(classify(restore['target']), 'stock')
         self.assertEqual(Layout(restore['target']).application(), self.oem)
 
-    def test_run_installs_and_restores_on_the_iine_layout(self):
-        device = FakeBD19(self.image, absent_polls=1)
+    def test_run_refuses_install_and_restore_but_restores_the_backup(self):
+        flashed = plan(self.image, self.oem, 'install', allow_unverified=True)['target']
+        for mode in ('install', 'restore'):
+            device = FakeBD19(flashed, absent_polls=1)
+            with tempfile.TemporaryDirectory() as folder:
+                with self.assertRaisesRegex(FlashError, 'not been shown to boot'):
+                    quiet(run, mode, Path(folder), Recorder(), link=device)
+            self.assertEqual(device.writes(), [])
+        device = FakeBD19(flashed, absent_polls=1)
         with tempfile.TemporaryDirectory() as folder:
-            report = quiet(run, 'install', Path(folder), Recorder(), link=device)
-        self.assertEqual(report['state'], 'factory-2025-09')
+            report = quiet(run, 'restore-backup', Path(folder), Recorder(), link=device, backup=self.image)
         self.assertTrue(report['full_readback_verified'])
-        self.assertEqual(classify(bytes(device.flash)), 'custom')
-        self.assertEqual(bytes(device.flash[0x34000:]), self.image[0x34000:])
+        self.assertEqual(report['target_state'], 'factory-2025-09')
+        self.assertEqual(bytes(device.flash), self.image, 'the exact original returns')
         self.assertEqual(device.erased[-1], 0x2000)
-        self.assertLessEqual(max(device.erased) + SECTOR, 0x34000)
         with tempfile.TemporaryDirectory() as folder:
-            quiet(run, 'restore', Path(folder), Recorder(), link=device)
-        self.assertEqual(classify(bytes(device.flash)), 'stock')
-        self.assertEqual(bytes(device.flash[0x34000:]), self.image[0x34000:])
+            with self.assertRaisesRegex(FlashError, 'not a complete read of a known'):
+                quiet(run, 'restore-backup', Path(folder), Recorder(), link=FakeBD19(flashed), backup=bytes(SIZE))

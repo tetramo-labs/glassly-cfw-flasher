@@ -33,7 +33,8 @@ def cli(argv):
                                      description='Flash from a terminal. IINE controllers, and every controller on '
                                                  'Linux, need sudo (Administrator on Windows).')
     parser.add_argument('device', choices=sorted(DEVICES))
-    parser.add_argument('mode', choices=['install', 'restore', 'backup'])
+    parser.add_argument('mode', choices=['install', 'restore', 'backup', 'restore-backup'])
+    parser.add_argument('--backup', help='flash-pass1.bin from an earlier session, for restore-backup')
     parser.add_argument('--i-accept-the-risk', action='store_true', help='required for install and restore')
     args = parser.parse_args(argv)
     device = DEVICES[args.device]
@@ -50,7 +51,8 @@ def cli(argv):
     thread = threading.Thread(target=follow, args=(events, done, console))
     thread.start()
     try:
-        return worker([device.key, args.mode, '--output', str(output), '--events', str(events)])
+        extra = ['--backup', args.backup] if args.backup else []
+        return worker([device.key, args.mode, '--output', str(output), '--events', str(events), *extra])
     finally:
         sys.stdout = sys.__stdout__
         sys.stderr = sys.__stderr__

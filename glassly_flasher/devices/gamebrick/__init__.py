@@ -30,9 +30,13 @@ def open_link():
     raise FlashError(f'Unsupported platform: {sys.platform}')
 
 
-def run(mode, output, reporter, link=None):
-    require(mode in ('install', 'restore', 'backup'), 'Invalid operation')
+def run(mode, output, reporter, link=None, backup=None):
+    require(mode in ('install', 'restore', 'backup', 'restore-backup'), 'Invalid operation')
     oem = custom = None
+    if mode == 'restore-backup':
+        if backup is None or len(backup) != SIZE or classify(backup) == 'unknown':
+            raise FlashError('The chosen file is not a complete read of a known Gamebrick image')
+        print(f'Backup carries the {classify(backup)} application.', flush=True)
     if mode != 'backup':
         # Verify both bundled applications before touching the controller.
         oem = official_application()
@@ -68,7 +72,7 @@ def run(mode, output, reporter, link=None):
                 planned = {}
 
                 def source_and_target(current):
-                    planned.update(plan(current, oem, mode, custom))
+                    planned.update(plan(current, oem, mode, custom, backup))
                     print(f'Controller firmware: {planned["state"]}; {len(planned["changed_sectors"])} sector(s) to write.', flush=True)
                     save('stock.bin', planned['stock'])
                     save('target.bin', planned['target'])

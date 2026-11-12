@@ -42,5 +42,6 @@ class Device:
     tested: str
     modes: tuple = ('install', 'restore', 'backup')
 
-    def run(self, mode, output, reporter):
-        return importlib.import_module(self.module).run(mode, output, reporter)
+    def run(self, mode, output, reporter, backup=None):
+        extra = {'backup': backup} if backup is not None else {}
+        return importlib.import_module(self.module).run(mode, output, reporter, **extra)

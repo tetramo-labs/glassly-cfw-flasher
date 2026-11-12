@@ -20,7 +20,8 @@ def give_back(folder, uid):
 def main(argv):
     parser = argparse.ArgumentParser(prog='glassly-cfw-flasher --worker')
     parser.add_argument('device', choices=sorted(DEVICES))
-    parser.add_argument('mode', choices=['install', 'restore', 'backup'])
+    parser.add_argument('mode', choices=['install', 'restore', 'backup', 'restore-backup'])
+    parser.add_argument('--backup', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--events', type=Path, required=True)
     parser.add_argument('--cancel', type=Path)
@@ -34,7 +35,12 @@ def main(argv):
         if args.mode not in device.modes:
             raise FlashError(f'{device.name} does not support {args.mode}')
         reporter.log(f'{device.name}: {args.mode}. Backups and logs: {args.output}')
-        summary = device.run(args.mode, args.output, reporter)
+        backup = None
+        if args.mode == 'restore-backup':
+            if args.backup is None or not args.backup.is_file():
+                raise FlashError('Choose the flash-pass1.bin from an earlier session of this controller')
+            backup = args.backup.read_bytes()
+        summary = device.run(args.mode, args.output, reporter, backup=backup)
         (args.output / 'result.json').write_text(json.dumps(summary, indent=2) + '\n')
         reporter.emit(type='result', ok=True, summary=summary)
         code = 0

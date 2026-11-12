@@ -10,7 +10,7 @@ against a pinned SHA256 before it goes near a controller.
 | --- | --- | --- |
 | 8BitDo Zero 2 (YC3121 board) | Official v1.08 | No (a backup is still taken before every flash) |
 | 8BitDo Micro | Official v1.05 | No (a backup is still taken before every flash) |
-| IINE Gamebrick Mini (L1161 / L1162) | Factory firmware (May 2026 or Sep 2025 builds) or the official IINE update, on either known flash layout | Yes |
+| IINE Gamebrick Mini (L1161 / L1162) | Factory firmware or the official IINE update on the 2025 production layout. Units on IINE's current layout (VM at `0x34000`) are recognised but refused for install until the 2026-11-13 no-boot is understood; their own backup can be restored | Yes |
 | IINE Mini Retro Ananke Gen 2, Purple / Gray / Cream Yellow (L1254 / L1255 / L1277) | Official V0900 | Yes |
 
 This is experimental firmware. Each controller has been flashed and verified from macOS with the research
@@ -57,7 +57,8 @@ a desktop, use the [command line](#command-line) with `sudo`.
 
 1. Connect only the controller you want to flash, with a USB **data** cable.
 2. In the app, choose the controller and what to do: install the Glassly firmware, put the official firmware
-   back, or (IINE controllers) just take a backup.
+   back, or (IINE controllers) just take a backup. The Gamebrick also offers putting back its own earlier backup:
+   pick the `flash-pass1.bin` from that session's folder.
 3. Tick the box acknowledging the risk and press **Start**.
 4. Put the controller in update mode. The app shows the steps and waits up to ten minutes:
    - **8BitDo Zero 2**: unplug, hold Start for three seconds to switch off, hold **L + R** and press

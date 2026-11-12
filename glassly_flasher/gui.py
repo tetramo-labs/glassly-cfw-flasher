@@ -6,7 +6,7 @@ import sys
 import tempfile
 import time
 import tkinter as tk
-from tkinter import font, messagebox, ttk
+from tkinter import filedialog, font, messagebox, ttk
 
 from . import __version__, elevate, paths
 from .devices import DEVICES
@@ -16,6 +16,7 @@ MODES = {
     'install': 'Install the Glassly firmware',
     'restore': 'Put the official firmware back',
     'backup': 'Back up only (writes nothing)',
+    'restore-backup': "Put back this controller's own backup (you choose its flash-pass1.bin)",
 }
 WRAP = 560
 
@@ -130,6 +131,14 @@ class App:
         self.events.touch()
         args = [device.key, mode, '--output', str(self.output), '--events', str(self.events),
                 '--cancel', str(self.temp / 'cancel')]
+        if mode == 'restore-backup':
+            chosen = filedialog.askopenfilename(title='Choose flash-pass1.bin from an earlier session of this controller',
+                                                initialdir=str(paths.backups_dir()),
+                                                filetypes=[('Flash backup', 'flash-pass1.bin'), ('All files', '*')])
+            if not chosen:
+                self.output.rmdir()
+                return
+            args += ['--backup', chosen]
         if sys.platform != 'win32':
             args += ['--owner', str(os.getuid())]
         self.log.configure(state='normal')
@@ -200,9 +209,11 @@ class App:
             self.bar.configure(mode='determinate', value=1000)
             mode = self.mode.get()
             self.status.set({'install': 'Glassly firmware installed', 'restore': 'Official firmware restored',
-                             'backup': 'Backup complete'}[mode])
+                             'backup': 'Backup complete', 'restore-backup': 'Backup restored'}[mode])
             self.result.set({'install': device.after_install, 'restore': device.after_restore,
-                             'backup': 'Nothing was written. Unplug the controller and switch it off and on.'}[mode])
+                             'backup': 'Nothing was written. Unplug the controller and switch it off and on.',
+                             'restore-backup': 'Unplug the controller and switch it off and on. It is back on the '
+                                               'application from the backup.'}[mode])
         else:
             self.bar.configure(mode='determinate', value=0)
             self.status.set('Cancelled' if outcome.get('cancelled') else 'Stopped')

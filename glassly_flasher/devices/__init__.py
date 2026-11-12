@@ -46,6 +46,7 @@ DEVICES = {d.key: d for d in [
         after_restore='Unplug the controller and switch it off and on again. It is back on the official IINE firmware.',
         module='glassly_flasher.devices.gamebrick',
         elevate=ALL,
+        modes=('install', 'restore', 'backup', 'restore-backup'),
         tested='Verified on two controllers from macOS with the research flasher this app is ported from. '
                'Windows and Linux have not been tried on a controller yet.',
     ),

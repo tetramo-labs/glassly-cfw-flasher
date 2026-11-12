@@ -10,7 +10,7 @@ import struct
 
 from ... import paths
 from ..jieli.vendored import jl_crc16, jl_sfc_cipher
-from .layout import LAYOUTS, Layout, classify
+from .layout import BOOT_VERIFIED_LAYOUTS, LAYOUTS, Layout, classify
 
 OEM_SHA = '2fb44f4235bd4ed7183439f31ee2a31fb0052d19dd736e20d1d251fd5e1ff259'
 CUSTOM_APP_SHA = '495ce9131d2cadebd558ec6d5ebfd51b6afa1ba957cba5c7f5dd331fcba9f432'
@@ -96,25 +96,40 @@ def glassly_application():
     return app
 
 
-def plan(current, oem, mode, custom=None):
-    """Source and target images for `mode` from the live flash, both carrying its storage."""
+KNOWN_STATES = ('factory', 'factory-2025-09', 'stock', 'custom')
+
+
+def plan(current, oem, mode, custom=None, backup=None, allow_unverified=False):
+    """Source and target images for `mode` from the live flash, both carrying its storage.
+    `restore-backup` puts back the application found in `backup`, an earlier full read of this
+    same kind of controller."""
     state = classify(current)
-    require(state in ('factory', 'factory-2025-09', 'stock', 'custom'),
+    require(state in KNOWN_STATES,
             f'Unrecognised flash contents ({state}); refusing to write. Keep the saved backup and ask for help.')
     layout = Layout(current)
+    if mode in ('install', 'restore') and not allow_unverified:
+        require(layout.fingerprint in BOOT_VERIFIED_LAYOUTS,
+                'The Glassly and official applications have not been shown to boot on this flash layout: a '
+                'controller of this kind did not start after a verified flash on 2026-11-13. Only "restore the '
+                'controller\'s own backup" is allowed on it until that is understood. Nothing was written.')
     sha = digest(current)
     stock = build(current, oem, sha)
     if mode == 'install':
-        target = build(current, custom or glassly_application(), sha)
+        target, expected = build(current, custom or glassly_application(), sha), 'custom'
     elif mode == 'restore':
-        target = stock
+        target, expected = stock, 'stock'
+    elif mode == 'restore-backup':
+        require(backup is not None and len(backup) == SIZE, 'A full 512 KiB backup read is required')
+        expected = classify(backup)
+        require(expected in KNOWN_STATES and Layout(backup).fingerprint == layout.fingerprint,
+                f'The backup is not a known image from this kind of controller ({expected})')
+        target = build(current, Layout(backup).application(), sha)
     else:
         raise RuntimeError('Invalid operation')
-    require(classify(target) == ('custom' if mode == 'install' else 'stock'),
-            'Derived image does not carry the reviewed application')
+    require(classify(target) == expected, 'Derived image does not carry the reviewed application')
     require(target[:layout.base] == current[:layout.base] and target[layout.limit:] == current[layout.limit:],
             'Plan would alter bytes outside the application area')
     sectors = [a for a in range(0, SIZE, 4096) if current[a:a+4096] != target[a:a+4096]]
     return {'state': state, 'layout': layout.describe(), 'chip_key': f'{layout.key:#06x}', 'target': target,
-            'stock': stock, 'changed_sectors': sectors, 'current_sha256': sha, 'target_sha256': digest(target),
-            'stock_sha256': digest(stock)}
+            'stock': stock, 'target_state': expected, 'changed_sectors': sectors, 'current_sha256': sha,
+            'target_sha256': digest(target), 'stock_sha256': digest(stock)}
