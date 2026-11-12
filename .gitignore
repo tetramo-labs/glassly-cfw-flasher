@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+/build/
+/dist/
+/native/*.dylib
+.DS_Store

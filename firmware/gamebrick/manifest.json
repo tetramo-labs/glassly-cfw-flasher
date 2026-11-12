@@ -1,0 +1,14 @@
+{
+  "files": {
+    "glassly-gamebrick-app.bin": {
+      "size": 199232,
+      "sha256": "495ce9131d2cadebd558ec6d5ebfd51b6afa1ba957cba5c7f5dd331fcba9f432",
+      "source": "tetramo-labs/glassly-gamebrick-mini-cfw@9d51cdf93e5bc4be71bbc7e05fe8984130838033 firmware/dist/glassly-gamebrick-app.bin (official application + reviewed hooks and payload)"
+    },
+    "iine-official-app.bin": {
+      "size": 198824,
+      "sha256": "2fb44f4235bd4ed7183439f31ee2a31fb0052d19dd736e20d1d251fd5e1ff259",
+      "source": "tetramo-labs/glassly-gamebrick-mini-cfw@9d51cdf93e5bc4be71bbc7e05fe8984130838033 firmware/dist/iine-official-app.bin (IINE official update application)"
+    }
+  }
+}

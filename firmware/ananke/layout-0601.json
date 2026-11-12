@@ -1,0 +1,126 @@
+{
+  "top_entries": [
+    {
+      "header_offset": 32,
+      "name": "uboot.boot",
+      "encoded_offset": 192,
+      "size": 8168,
+      "flags": 0,
+      "index": 0,
+      "data_crc16": 2396,
+      "header_crc_valid": true
+    },
+    {
+      "header_offset": 64,
+      "name": "isd_config.ini",
+      "encoded_offset": 8360,
+      "size": 137,
+      "flags": 2,
+      "index": 0,
+      "data_crc16": 58254,
+      "header_crc_valid": true
+    },
+    {
+      "header_offset": 96,
+      "name": "app_dir_head",
+      "encoded_offset": 12320,
+      "size": 12288,
+      "flags": 129,
+      "index": 0,
+      "data_crc16": 65535,
+      "header_crc_valid": true
+    },
+    {
+      "header_offset": 128,
+      "name": "app_dir_head2",
+      "encoded_offset": 503840,
+      "size": 503808,
+      "flags": 129,
+      "index": 0,
+      "data_crc16": 65535,
+      "header_crc_valid": true
+    },
+    {
+      "header_offset": 160,
+      "name": "key_mac",
+      "encoded_offset": 1044480,
+      "size": 4096,
+      "flags": 18,
+      "index": 65535,
+      "data_crc16": 65535,
+      "header_crc_valid": true
+    }
+  ],
+  "application_area": {
+    "header_offset": 12320,
+    "name": "app_area_head",
+    "encoded_offset": 31457568,
+    "size": 344412,
+    "flags": 131,
+    "index": 1,
+    "data_crc16": 14793,
+    "header_crc_valid": true
+  },
+  "application_entries": [
+    {
+      "header_offset": 12352,
+      "name": "app.bin",
+      "encoded_offset": 288,
+      "size": 343208,
+      "flags": 130,
+      "index": 0,
+      "data_crc16": 55548,
+      "header_crc_valid": true
+    },
+    {
+      "header_offset": 12384,
+      "name": "cfg_tool.bin",
+      "encoded_offset": 343496,
+      "size": 916,
+      "flags": 130,
+      "index": 0,
+      "data_crc16": 21661,
+      "header_crc_valid": true
+    },
+    {
+      "header_offset": 12416,
+      "name": "VM",
+      "encoded_offset": 995328,
+      "size": 8192,
+      "flags": 18,
+      "index": 0,
+      "data_crc16": 65535,
+      "header_crc_valid": true
+    },
+    {
+      "header_offset": 12448,
+      "name": "PRCT",
+      "encoded_offset": 0,
+      "size": 995328,
+      "flags": 146,
+      "index": 0,
+      "data_crc16": 65535,
+      "header_crc_valid": true
+    },
+    {
+      "header_offset": 12480,
+      "name": "BTIF",
+      "encoded_offset": 1003520,
+      "size": 4096,
+      "flags": 146,
+      "index": 0,
+      "data_crc16": 65535,
+      "header_crc_valid": true
+    },
+    {
+      "header_offset": 12512,
+      "name": "USERIF",
+      "encoded_offset": 1007616,
+      "size": 36864,
+      "flags": 146,
+      "index": 1,
+      "data_crc16": 65535,
+      "header_crc_valid": true
+    }
+  ]
+}

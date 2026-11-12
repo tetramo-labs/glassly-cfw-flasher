@@ -1,0 +1,24 @@
+{
+  "files": {
+    "glassly-micro-v1.05.dat": {
+      "size": 77852,
+      "sha256": "72713359970e57dfd5697c807a7a5ba97ef521ed19fd87a3615332aefc5d3091",
+      "source": "tetramo-labs/glassly-8bitdo-micro@41975bbdcc6b6b42108c950113c0203bc973737e tools/build_buttons_probe.py package (\"Glassly Micro\" name)"
+    },
+    "glassly-micro-v1.05.plain.bin": {
+      "size": 77824,
+      "sha256": "9e54738d54ae4dcb57a65f8306edefb660604c41c065f83948599a8132c2cf5e",
+      "source": "tetramo-labs/glassly-8bitdo-micro@41975bbdcc6b6b42108c950113c0203bc973737e tools/build_buttons_probe.py Yichip plaintext"
+    },
+    "official-micro-v1.05.dat": {
+      "size": 77852,
+      "sha256": "74f0a12709758cc13a358e44adaa1d6193a3532aac2685db07e913c8e3609ce6",
+      "source": "tetramo-labs/glassly-8bitdo-micro@41975bbdcc6b6b42108c950113c0203bc973737e 8BitDo Micro v1.05 package pinned in sources.lock.json"
+    },
+    "official-micro-v1.05.plain.bin": {
+      "size": 77824,
+      "sha256": "e31c7f7656fb041ec6ede6603762d841783eb3d9b760321eaaa0c582aaa59233",
+      "source": "tetramo-labs/glassly-8bitdo-micro@41975bbdcc6b6b42108c950113c0203bc973737e Yichip section 0 of the official v1.05 package"
+    }
+  }
+}

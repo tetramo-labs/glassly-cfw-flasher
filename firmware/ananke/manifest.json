@@ -1,0 +1,19 @@
+{
+  "files": {
+    "glassly-v0900-app.bin": {
+      "size": 343208,
+      "sha256": "833e76739433639e8ad81b3d7d187ac2fe6cd7729088184d8e07ca25f7e0f350",
+      "source": "tetramo-labs/glassly-ananke-cfw@0cfd7ee364e85a1b5dde49caf208c3c42106a8e1 research/ananke_flasher.py applications(IG05_V0900.ufw) patched application (firmware/dist/payload.bin applied)"
+    },
+    "iine-v0900-app.bin": {
+      "size": 338712,
+      "sha256": "3f4a6bea1e7901188e7c8a202cbe4916d141ec624db66218139d9f98c01762eb",
+      "source": "tetramo-labs/glassly-ananke-cfw@0cfd7ee364e85a1b5dde49caf208c3c42106a8e1 research/ananke_flasher.py applications(IG05_V0900.ufw) official V0900 app.bin (UFW SHA256 64f9dd8390ccfb5b63cba971f73f09228fbd0a3cdba13eab7dcdd502757e0fd3)"
+    },
+    "layout-0601.json": {
+      "size": 2652,
+      "sha256": "28d42f7cb4718e00c3cea1ddba426c54f14fea6976779f1e1d154e0a5512711e",
+      "source": "tetramo-labs/glassly-ananke-cfw@0cfd7ee364e85a1b5dde49caf208c3c42106a8e1 docs/evidence/installed-0601.json, keys top_entries/application_area/application_entries (measured 0x0601 partition map)"
+    }
+  }
+}
