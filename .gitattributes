@@ -1,0 +1,2 @@
+firmware/** -text
+third_party/jl-uboot-tool/data/** -text
