@@ -58,8 +58,9 @@ class FakeBD19:
 
     transport = 'fake'
 
-    def __init__(self, flash, absent_polls=0):
+    def __init__(self, flash, absent_polls=0, flash_id=0xcd7113):
         self.flash = bytearray(flash)
+        self.flash_id = flash_id
         self.ram = bytearray(23040)
         self.calls = []
         self.erased = []
@@ -95,7 +96,8 @@ class FakeBD19:
         if op == 0xfb01:
             self.erased.append(addr)
             self.flash[addr:addr+SECTOR] = b'\xff'*SECTOR
-        replies = {0xfc0a: bytes([3, 0]) + (0xcd7113).to_bytes(4, 'little'), 0xfc0b: bytes.fromhex('00cd71'),
+        replies = {0xfc0a: bytes([3, 0]) + self.flash_id.to_bytes(4, 'little'),
+                   0xfc0b: (self.flash_id >> 8).to_bytes(3, 'big'),
                    0xfc14: bytes.fromhex('00000100')}
         return (cdb[:2] + replies.get(op, b'')).ljust(n, b'\0')
 
@@ -147,6 +149,14 @@ class BundledApplicationTests(unittest.TestCase):
                 quiet(run, 'install', Path(folder), Recorder(), link=device)
             self.assertEqual(sorted(p.name for p in Path(folder).iterdir()), ['flash-pass1.bin', 'flash-pass2.bin'])
         self.assertEqual(device.writes(), [])
+
+    def test_other_flash_chip_is_refused_with_its_identity(self):
+        device = FakeBD19(bytes(SIZE), flash_id=0x0b4013)
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(FlashError, 'flash ID 0x0b4013.*read-ID 000b40.*Nothing was written'):
+                quiet(run, 'install', Path(folder), Recorder(), link=device)
+        self.assertEqual(device.writes(), [])
+        self.assertNotIn(b'\xfd\x05', device.calls)
 
     def test_wrong_bootloader_is_refused(self):
         device = FakeBD19(bytes(SIZE))

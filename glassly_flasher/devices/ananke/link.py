@@ -55,7 +55,11 @@ class Br23Gates:
         if not (online[0] == 3 and int.from_bytes(online[2:6], 'little') == 0x856014 and
                 fid[:3] == bytes.fromhex('008560') and
                 int.from_bytes(buf[:4], 'big') == 0x8000 and size == 0x100000):
-            raise LinkError('Unsupported BR23 flash read residue profile identity')
+            raise LinkError(f'Unsupported flash: the loader reports device type {online[0]:#04x}, flash ID '
+                            f'{int.from_bytes(online[2:6], "little"):#08x}, read-ID {fid[:3].hex()}, buffer '
+                            f'{int.from_bytes(buf[:4], "big")} bytes; the supported controllers have SPI NOR flash ID '
+                            '0x856014 with a 32768-byte buffer. Nothing was written. Report this message so this '
+                            'flash chip can be checked.')
         self.flash_read_size = size
 
     def expected_residue(self, cdb, out, n):
