@@ -14,7 +14,7 @@ import zlib
 from glassly_flasher.devices import DEVICES
 from glassly_flasher.devices import memomind
 from glassly_flasher.devices.base import Cancelled, FlashError, Reporter
-from glassly_flasher.devices.memomind import Session, rfcomm, run
+from glassly_flasher.devices.memomind import Session, protocol, rfcomm, run
 from glassly_flasher.devices.memomind.image import CFW_SHA256, check_container, load_cfw
 from glassly_flasher.devices.memomind.protocol import (OTA_MAGIC, GmSession, GmStream, OtaStream, OtaTransaction,
                                                        ProtocolError, check_identity, encode_ota, gm_frame,
@@ -687,8 +687,10 @@ class HardwareReplayTests(unittest.TestCase):
         ota = ReplayChannel(ota_events, 'ota', wire)
         GmSession(control).notify_ota()
         image = STOCK.read_bytes()
-        result = OtaTransaction(ota, image, identity, identity['mac'], check_control=control.drain,
-                                sleep=lambda seconds: None, pace=0).run()
+        # The vendor updated this pair from 1.0.2.151; the app's gate excludes that version, so the replay widens it.
+        with mock.patch.object(protocol, 'SOURCE_VERSIONS', ('1.0.2.151', '1.0.3.127')):
+            result = OtaTransaction(ota, image, identity, identity['mac'], check_control=control.drain,
+                                    sleep=lambda seconds: None, pace=0).run()
         self.assertTrue(control.finished() and ota.finished())
         self.assertEqual((result['blocks'], result['chunks'], result['transferred_range'], result['resumed_from']),
                          (494, 3457, [162757, len(image)], 162757))

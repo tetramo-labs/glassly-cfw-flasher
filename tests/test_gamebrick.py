@@ -12,7 +12,8 @@ from glassly_flasher.devices.base import FlashError, Reporter
 from glassly_flasher.devices.gamebrick import run
 from glassly_flasher.devices.gamebrick.image import (CUSTOM_APP_SHA, OEM_SHA, classify, digest, glassly_application,
                                                       official_application, plan)
-from glassly_flasher.devices.gamebrick.layout import APPLICATIONS, LAYOUTS, Layout, userif_record_size
+from glassly_flasher.devices.gamebrick.layout import (APPLICATIONS, LAYOUTS, Layout, migrate_userif, record_size_of,
+                                                       userif_record_size)
 from glassly_flasher.devices.gamebrick.transport import PAGE, SECTOR, SIZE, program_image, program_with_plan
 from glassly_flasher.devices.jieli.link import INQUIRY
 
@@ -234,15 +235,15 @@ class PlanTests(unittest.TestCase):
         oem = self.oem
         device = NOR(self.factory, range(0, SIZE, SECTOR))
         saved = {}
-        report = quiet(program_with_plan, device, lambda c: (c, plan(c, oem, 'install', flash_id=0xcd7113)['target']), saved.__setitem__)
+        report = quiet(program_with_plan, device, lambda c: (c, plan(c, oem, 'install', flash_id=0xcd7113)['target'], ()), saved.__setitem__)
         self.assertTrue(report['full_readback_verified'])
         self.assertEqual(bytes(device.data), self.custom)
         self.assertEqual(saved['flash-pass1.bin'], self.factory)
         self.assertEqual(device.erased[-1], 0x2000, 'the header sector is committed last')
         self.assertFalse(device.writes_enabled)
-        again = quiet(program_with_plan, device, lambda c: (c, plan(c, oem, 'install', flash_id=0xcd7113)['target']), saved.__setitem__)
+        again = quiet(program_with_plan, device, lambda c: (c, plan(c, oem, 'install', flash_id=0xcd7113)['target'], ()), saved.__setitem__)
         self.assertEqual(again['writes'], 0)
-        quiet(program_with_plan, device, lambda c: (c, plan(c, oem, 'restore', flash_id=0xcd7113)['target']), saved.__setitem__)
+        quiet(program_with_plan, device, lambda c: (c, plan(c, oem, 'restore', flash_id=0xcd7113)['target'], ()), saved.__setitem__)
         self.assertEqual(bytes(device.data), self.stock)
 
     def test_every_page_failure_leaves_protected_sectors_and_restores(self):
@@ -277,7 +278,7 @@ class PlanTests(unittest.TestCase):
                 return super().read(a, n)
         shaky = Unstable(self.factory, range(0, SIZE, SECTOR))
         with self.assertRaisesRegex(RuntimeError, 'changed between preflight reads'):
-            quiet(program_with_plan, shaky, lambda c: (c, plan(c, oem, 'install', flash_id=0xcd7113)['target']), lambda n, d: None)
+            quiet(program_with_plan, shaky, lambda c: (c, plan(c, oem, 'install', flash_id=0xcd7113)['target'], ()), lambda n, d: None)
         self.assertFalse(shaky.erased)
 
     def test_run_installs_restores_and_is_idempotent(self):
@@ -356,18 +357,75 @@ class IineLayoutTests(unittest.TestCase):
             with self.assertRaisesRegex(FlashError, 'not a complete read of a known'):
                 quiet(run, 'restore-backup', Path(folder), Recorder(), link=FakeBD19(flashed), backup=bytes(SIZE))
 
-    def test_settings_record_format_refuses_the_application_that_bricked_the_tester(self):
+    def test_settings_record_is_migrated_for_a_0x40_application(self):
         self.assertEqual(userif_record_size(Layout(self.image)), 0x38)
         self.assertEqual(userif_record_size(Layout(self.blank)), 'blank')
+        old = self.image[0x7d000:0x7f000]
+        migrated = migrate_userif(Layout(self.image))
+        self.assertEqual((migrated[:0x20], migrated[0x20:0x28], migrated[0x28:0x1000], migrated[0x1000:]),
+                         (old[:0x20], b'\xff' * 8, old[0x20:0x1000 - 8], old[0x1000:]))
+        self.assertEqual(record_size_of(migrated), 0x40)
         for mode in ('install', 'restore'):
-            with self.assertRaisesRegex(RuntimeError, 'different settings layout.*record size 0x38.*expects 0x40'):
-                plan(self.image, self.oem, mode, flash_id=0xcd7013, allow_unverified=True)
-        flashed = plan(self.blank, self.oem, 'install', allow_unverified=True)['target']
-        with_old_settings = flashed[:0x7d000] + self.image[0x7d000:0x7f000] + flashed[0x7f000:]
-        back = plan(with_old_settings, self.oem, 'restore-backup', backup=self.image)
-        self.assertEqual((back['target_state'], back['target']), ('factory-2025-09', self.image))
-        device = FakeBD19(with_old_settings, absent_polls=1)
+            planned = plan(self.image, self.oem, mode, flash_id=0xcd7013, allow_unverified=True)
+            self.assertEqual(planned['settings_sectors'], (0x7d000, 0x7e000))
+            self.assertEqual(planned['target'][0x7d000:0x7f000], migrated)
+            self.assertIn(0x7d000, planned['changed_sectors'])
+            self.assertEqual(classify(planned['target']), 'custom' if mode == 'install' else 'stock')
+        corrupt = bytearray(self.image)
+        corrupt[0x7d010] = 0x12
+        with self.assertRaisesRegex(RuntimeError, 'reserved span'):
+            plan(bytes(corrupt), self.oem, 'install', flash_id=0xcd7013, allow_unverified=True)
+
+    def test_migration_erases_settings_first_and_writes_them_after_the_header(self):
+        oem = self.oem
+
+        class Recording(NOR):
+            def __init__(self, *a, **k):
+                super().__init__(*a, **k)
+                self.programmed = []
+
+            def program(self, a, b):
+                self.programmed.append(a)
+                super().program(a, b)
+
+        class LostAfterSettings(Recording):
+            def erase(self, a):
+                if a != 0x7d000:
+                    raise RuntimeError('Injected disconnect')
+                super().erase(a)
+
+        def source_and_target(current):
+            planned = plan(current, oem, 'install', flash_id=0xcd7013, allow_unverified=True)
+            return current, planned['target'], planned['settings_sectors']
+        device = Recording(self.image, range(0, SIZE, SECTOR))
+        report = quiet(program_with_plan, device, source_and_target, lambda n, d: None)
+        self.assertTrue(report['full_readback_verified'])
+        self.assertEqual(device.erased[0], 0x7d000, 'settings are erased before anything else')
+        self.assertEqual(device.erased[-1], 0x2000, 'the header sector is committed last among the application sectors')
+        self.assertGreaterEqual(device.programmed[-1], 0x7d000, 'the settings record is written after the header')
+        self.assertEqual((classify(bytes(device.data)), userif_record_size(Layout(bytes(device.data)))), ('custom', 0x40))
+        interrupted = LostAfterSettings(self.image, range(0, SIZE, SECTOR))
+        with self.assertRaises(RuntimeError):
+            quiet(program_with_plan, interrupted, source_and_target, lambda n, d: None)
+        self.assertEqual(interrupted.erased, [0x7d000])
+        self.assertEqual((classify(bytes(interrupted.data)), userif_record_size(Layout(bytes(interrupted.data)))),
+                         ('factory-2025-09', 'blank'))
+        for state in (device, Recording(bytes(interrupted.data), range(0, SIZE, SECTOR))):
+            quiet(program_with_plan, state, lambda c: (lambda p: (c, p['target'], p['settings_sectors']))(
+                plan(c, oem, 'restore-backup', backup=self.image)), lambda n, d: None)
+            self.assertEqual(bytes(state.data), self.image, 'restore-backup returns the exact original, settings included')
+
+    def test_run_refuses_unverified_kinds_but_restores_the_backup(self):
+        flashed = plan(self.image, self.oem, 'install', allow_unverified=True)['target']
+        for mode in ('install', 'restore'):
+            device = FakeBD19(flashed, absent_polls=1)
+            with tempfile.TemporaryDirectory() as folder:
+                with self.assertRaisesRegex(FlashError, 'not been flashed and seen booting'):
+                    quiet(run, mode, Path(folder), Recorder(), link=device)
+            self.assertEqual(device.writes(), [])
+        device = FakeBD19(flashed, absent_polls=1)
         with tempfile.TemporaryDirectory() as folder:
-            with self.assertRaisesRegex(FlashError, 'different settings layout.*record size 0x38.*expects 0x40'):
-                quiet(run, 'restore-backup', Path(folder), Recorder(), link=device, backup=flashed)
-        self.assertEqual(device.writes(), [])
+            report = quiet(run, 'restore-backup', Path(folder), Recorder(), link=device, backup=self.image)
+        self.assertEqual((report['target_state'], bytes(device.flash)), ('factory-2025-09', self.image))
+        self.assertEqual(device.erased[0], 0x7d000)
+        self.assertEqual(device.erased[-1], 0x2000)

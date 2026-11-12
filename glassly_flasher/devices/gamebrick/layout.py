@@ -156,22 +156,49 @@ def crc16_modbus(data, crc=0xffff):
     return crc
 
 
-def userif_record_size(layout):
-    """0x38 or 0x40 from where CRC-valid list maps start; 'blank' if USERIF is erased; 'unknown' otherwise."""
+MAPS = 6
+SECTOR = 4096
+RECORD_INSERT = 0x20
+RECORD_GROWTH = 0x40 - 0x38
+
+
+def valid_map(region):
+    crc, _, mx, ml = struct.unpack_from('<HHHH', region, 0)
+    return mx == MAP_MAX and ml <= MAP_MAX - 8 and crc16_modbus(region[2:8+ml]) == crc
+
+
+def userif_partition(layout):
     userif = [e for e in layout.partitions if name(e) == 'USERIF']
     require(len(userif) == 1, 'No USERIF partition')
-    start, size = userif[0][2], userif[0][3]
-    u = layout.image[start:start+size]
+    return userif[0][2], userif[0][3]
+
+
+def record_size_of(u):
+    """0x38 or 0x40 from where CRC-valid list maps start; 'blank' if erased; 'unknown' otherwise."""
     if all(b == 0xff for b in u):
         return 'blank'
-    found = []
-    for record in (0x38, 0x40):
-        for i in range(6):
-            o = record + i*MAP_MAX
-            if o + 8 > len(u):
-                break
-            crc, _, mx, ml = struct.unpack_from('<HHHH', u, o)
-            if mx == MAP_MAX and ml <= MAP_MAX - 8 and crc16_modbus(u[o+2:o+8+ml]) == crc:
-                found.append(record)
-                break
+    found = [s for s in (0x38, 0x40)
+             if any(valid_map(u[s+i*MAP_MAX:s+(i+1)*MAP_MAX]) for i in range(MAPS) if s+(i+1)*MAP_MAX <= len(u))]
     return found[0] if len(found) == 1 else 'unknown'
+
+
+def userif_record_size(layout):
+    start, size = userif_partition(layout)
+    return record_size_of(layout.image[start:start+size])
+
+
+def migrate_userif(layout):
+    """The USERIF partition rewritten from the 0x38 record format to 0x40: eight erased bytes inserted at
+    0x20 inside the record's erased span 0x0e..0x20, everything after moved up, so the list maps keep
+    their CRCs. Only the first sector changes. Refuses anything it does not fully recognise."""
+    start, size = userif_partition(layout)
+    u = layout.image[start:start+size]
+    require(record_size_of(u) == 0x38, 'USERIF does not hold a 0x38-byte settings record')
+    require(all(b == 0xff for b in u[0x0e:0x20]), 'Unexpected data in the reserved span of the settings record')
+    require(all(b == 0xff for b in u[SECTOR-RECORD_GROWTH:SECTOR]), 'No room at the end of the settings sector')
+    for i in range(MAPS):
+        region = u[0x38+i*MAP_MAX:0x38+(i+1)*MAP_MAX]
+        require(valid_map(region) or all(b == 0xff for b in region), f'List map {i} is neither valid nor erased')
+    migrated = u[:RECORD_INSERT] + b'\xff'*RECORD_GROWTH + u[RECORD_INSERT:SECTOR-RECORD_GROWTH] + u[SECTOR:]
+    require(len(migrated) == size and record_size_of(migrated) == 0x40, 'Migrated record did not validate')
+    return migrated

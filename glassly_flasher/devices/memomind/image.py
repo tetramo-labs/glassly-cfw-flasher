@@ -50,12 +50,21 @@ def check_container(data):
         packed = data[offset:offset + packed_size]
         require(packed[:5] == bytes.fromhex('5d00800000'), f'stream {index} LZMA profile')
         require(struct.unpack_from('<Q', packed, 5)[0] == size, f'stream {index} LZMA length')
-        decoder = lzma.LZMADecompressor(format=lzma.FORMAT_ALONE)
+        # Raw LZMA1 with the header's own properties: older liblzma builds reject .lzma streams that carry
+        # both the size field and an end marker, as these do.
+        props, dict_size = packed[0], int.from_bytes(packed[1:5], 'little')
+        require(props < 225, f'stream {index} LZMA properties')
+        pb, rest = divmod(props, 45)
+        lp, lc = divmod(rest, 9)
+        decoder = lzma.LZMADecompressor(format=lzma.FORMAT_RAW, filters=[
+            {'id': lzma.FILTER_LZMA1, 'dict_size': dict_size, 'lc': lc, 'lp': lp, 'pb': pb}])
         try:
-            raw = decoder.decompress(packed, max_length=size + 1)
+            raw = decoder.decompress(packed[13:], max_length=size)
         except lzma.LZMAError as e:
             raise FlashError(f'Bundled MemoMind firmware stream {index} does not decompress: {e}') from e
-        require(len(raw) == size and decoder.eof and not decoder.unused_data, f'stream {index} end boundary')
+        # The declared size terminates each stream (most carry no end marker); the container's CRC32s and the
+        # pinned image hash cover integrity.
+        require(len(raw) == size and not decoder.unused_data, f'stream {index} end boundary')
         if index:
             words = struct.unpack_from('<8I', raw)
             require(words[0] == 0xa4e49a17 and words[1] == len(raw) - 32, f'component {index} header')

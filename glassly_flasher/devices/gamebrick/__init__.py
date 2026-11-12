@@ -74,10 +74,13 @@ def run(mode, output, reporter, link=None, backup=None):
                 def source_and_target(current):
                     planned.update(plan(current, oem, mode, custom, backup, device.flash_id))
                     print(f'Controller firmware: {planned["state"]}; {len(planned["changed_sectors"])} sector(s) to write.', flush=True)
+                    if planned['settings_sectors']:
+                        print('Settings record will be rewritten: erased before the application changes, written after '
+                              'its header is committed.', flush=True)
                     save('stock.bin', planned['stock'])
                     save('target.bin', planned['target'])
                     reporter.status(f'Writing {len(planned["changed_sectors"])} sector(s)…')
-                    return current, planned['target']
+                    return current, planned['target'], planned['settings_sectors']
 
                 reporter.status('Reading the controller\'s flash (twice) before writing…')
                 report = program_with_plan(device, source_and_target, save, reporter.progress)
