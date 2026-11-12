@@ -10,7 +10,7 @@ against a pinned SHA256 before it goes near a controller.
 | --- | --- | --- |
 | 8BitDo Zero 2 (YC3121 board) | Official v1.08 | No (a backup is still taken before every flash) |
 | 8BitDo Micro | Official v1.05 | No (a backup is still taken before every flash) |
-| IINE Gamebrick Mini (L1161 / L1162) | Factory or official IINE update | Yes |
+| IINE Gamebrick Mini (L1161 / L1162) | Factory firmware (May 2026 or Sep 2025 builds) or the official IINE update, on either known flash layout | Yes |
 | IINE Mini Retro Ananke Gen 2, Purple / Gray / Cream Yellow (L1254 / L1255 / L1277) | Official V0900 | Yes |
 
 This is experimental firmware. Each controller has been flashed and verified from macOS with the research

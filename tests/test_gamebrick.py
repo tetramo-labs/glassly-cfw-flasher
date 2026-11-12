@@ -10,8 +10,9 @@ import unittest
 
 from glassly_flasher.devices.base import FlashError, Reporter
 from glassly_flasher.devices.gamebrick import run
-from glassly_flasher.devices.gamebrick.image import (CUSTOM_APP_SHA, FINGERPRINTS, OEM_SHA, classify, digest,
-                                                      fingerprint, glassly_application, official_application, plan)
+from glassly_flasher.devices.gamebrick.image import (CUSTOM_APP_SHA, OEM_SHA, classify, digest, glassly_application,
+                                                      official_application, plan)
+from glassly_flasher.devices.gamebrick.layout import APPLICATIONS, LAYOUTS, Layout
 from glassly_flasher.devices.gamebrick.transport import PAGE, SECTOR, SIZE, program_image, program_with_plan
 from glassly_flasher.devices.jieli.link import INQUIRY
 
@@ -21,6 +22,7 @@ UNIT1 = RESEARCH/'device-backup-20261022-233350/flash-pass1.bin'
 CUSTOM = RESEARCH/'custom-prepared/unit2/custom-device-layout.bin'
 FLASHED = RESEARCH/'custom-flash-unit2-20261028-193401/target.bin'
 WITHDRAWN = RESEARCH/'custom-prepared/custom-device-layout-withdrawn-20261025.bin'
+TESTER = RESEARCH/'device-backup-20261113-tester/flash-pass1.bin'
 UNIT2_STOCK_SHA = '51b28f4364802db4597baa3a492a2d2b6ce244f3574a6b779542c07ee242f488'
 FIXTURES = unittest.skipUnless(all(p.exists() for p in (FACTORY, UNIT1, CUSTOM, FLASHED, WITHDRAWN)),
                                'Gamebrick unit backups unavailable')
@@ -128,7 +130,7 @@ class BundledApplicationTests(unittest.TestCase):
     def test_bundled_applications_are_pinned(self):
         self.assertEqual(digest(official_application()), OEM_SHA)
         self.assertEqual(digest(glassly_application()), CUSTOM_APP_SHA)
-        self.assertEqual(len(FINGERPRINTS), 4)
+        self.assertEqual((len(LAYOUTS), len(APPLICATIONS)), (2, 5))
 
     def test_backup_of_unknown_flash_writes_nothing(self):
         image = bytes(range(256)) * (SIZE // 256)
@@ -183,17 +185,17 @@ class PlanTests(unittest.TestCase):
         cls.oem = official_application()
         cls.stock = plan(cls.factory, cls.oem, 'restore')['target']
 
-    def test_fingerprints_ignore_storage_and_classify_every_known_state(self):
+    def test_layouts_and_applications_classify_every_known_state(self):
         self.assertEqual(digest(self.stock), UNIT2_STOCK_SHA)
         self.assertEqual(classify(self.factory), 'factory')
         self.assertEqual(classify(self.stock), 'stock')
         self.assertEqual(classify(self.custom), 'custom')
         self.assertEqual(classify(FLASHED.read_bytes()), 'custom')
-        self.assertEqual(classify(UNIT1.read_bytes()), 'factory', 'unit1 shares the fingerprint')
+        self.assertEqual(classify(UNIT1.read_bytes()), 'factory', 'unit1 shares the layout')
         drifted = bytearray(self.factory)
         drifted[0x7a123] ^= 0xFF
         drifted[0x7f000] = 0x12
-        self.assertEqual(fingerprint(bytes(drifted)), fingerprint(self.factory))
+        self.assertEqual(classify(bytes(drifted)), 'factory', 'live storage does not change the classification')
         for address in (0, 0x2140, 0x79fff):
             bad = bytearray(self.factory)
             bad[address] ^= 1
@@ -290,3 +292,49 @@ class PlanTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+
+@unittest.skipUnless(TESTER.exists(), 'tester backup unavailable')
+class IineLayoutTests(unittest.TestCase):
+    """A user's unit on IINE's current flash layout with the Sep 2025 factory build."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.image = TESTER.read_bytes()
+        cls.oem = official_application()
+
+    def test_tester_unit_is_recognised(self):
+        self.assertEqual(classify(self.image), 'factory-2025-09')
+        layout = Layout(self.image)
+        self.assertEqual((layout.base, layout.limit, layout.key), (0x2000, 0x34000, 0x190d))
+        self.assertEqual(layout.storage, [(0x34000, 0x7b000), (0x7b000, 0x7c000), (0x7c000, 0x7d000),
+                                          (0x7d000, 0x7f000), (0x7f000, 0x80000)])
+
+    def test_plans_keep_everything_outside_the_application_area(self):
+        install = plan(self.image, self.oem, 'install')
+        target = install['target']
+        self.assertEqual((install['state'], classify(target)), ('factory-2025-09', 'custom'))
+        self.assertEqual(Layout(target).application(), glassly_application())
+        self.assertEqual(target[:0x2000], self.image[:0x2000])
+        self.assertEqual(target[0x34000:], self.image[0x34000:])
+        self.assertTrue(install['changed_sectors'] and all(0x2000 <= a < 0x34000 for a in install['changed_sectors']))
+        self.assertEqual(plan(target, self.oem, 'install')['changed_sectors'], [])
+        restore = plan(target, self.oem, 'restore')
+        self.assertEqual(classify(restore['target']), 'stock')
+        self.assertEqual(Layout(restore['target']).application(), self.oem)
+
+    def test_run_installs_and_restores_on_the_iine_layout(self):
+        device = FakeBD19(self.image, absent_polls=1)
+        with tempfile.TemporaryDirectory() as folder:
+            report = quiet(run, 'install', Path(folder), Recorder(), link=device)
+        self.assertEqual(report['state'], 'factory-2025-09')
+        self.assertTrue(report['full_readback_verified'])
+        self.assertEqual(classify(bytes(device.flash)), 'custom')
+        self.assertEqual(bytes(device.flash[0x34000:]), self.image[0x34000:])
+        self.assertEqual(device.erased[-1], 0x2000)
+        self.assertLessEqual(max(device.erased) + SECTOR, 0x34000)
+        with tempfile.TemporaryDirectory() as folder:
+            quiet(run, 'restore', Path(folder), Recorder(), link=device)
+        self.assertEqual(classify(bytes(device.flash)), 'stock')
+        self.assertEqual(bytes(device.flash[0x34000:]), self.image[0x34000:])
