@@ -150,6 +150,14 @@ class BundledApplicationTests(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in Path(folder).iterdir()), ['flash-pass1.bin', 'flash-pass2.bin'])
         self.assertEqual(device.writes(), [])
 
+    def test_second_known_flash_part_is_accepted(self):
+        image = bytes(range(256)) * (SIZE // 256)
+        device = FakeBD19(image, flash_id=0xcd7013)
+        with tempfile.TemporaryDirectory() as folder:
+            report = quiet(run, 'backup', Path(folder), Recorder(), link=device)
+            self.assertEqual(report['state'], 'unknown')
+            self.assertEqual((Path(folder)/'flash-pass2.bin').read_bytes(), image)
+
     def test_other_flash_chip_is_refused_with_its_identity(self):
         device = FakeBD19(bytes(SIZE), flash_id=0x0b4013)
         with tempfile.TemporaryDirectory() as folder:
