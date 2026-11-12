@@ -371,10 +371,12 @@ class IineLayoutTests(unittest.TestCase):
             self.assertEqual(planned['target'][0x7d000:0x7f000], migrated)
             self.assertIn(0x7d000, planned['changed_sectors'])
             self.assertEqual(classify(planned['target']), 'custom' if mode == 'install' else 'stock')
-        corrupt = bytearray(self.image)
-        corrupt[0x7d010] = 0x12
-        with self.assertRaisesRegex(RuntimeError, 'reserved span'):
-            plan(bytes(corrupt), self.oem, 'install', flash_id=0xcd7013, allow_unverified=True)
+        for offset, value, message in ((0x7d010, 0x12, 'reserved span'), (0x7d033, 0x00, 'divisor'),
+                                       (0x7d900, 0x55, 'after the list maps')):
+            corrupt = bytearray(self.image)
+            corrupt[offset] = value
+            with self.assertRaisesRegex(RuntimeError, message):
+                plan(bytes(corrupt), self.oem, 'install', flash_id=0xcd7013, allow_unverified=True)
 
     def test_migration_erases_settings_first_and_writes_them_after_the_header(self):
         oem = self.oem

@@ -163,8 +163,9 @@ RECORD_GROWTH = 0x40 - 0x38
 
 
 def valid_map(region):
+    # Both builds' check_map: max 0xc8, 8 <= len <= 0xc0, a multiple of 4, CRC-16/MODBUS.
     crc, _, mx, ml = struct.unpack_from('<HHHH', region, 0)
-    return mx == MAP_MAX and ml <= MAP_MAX - 8 and crc16_modbus(region[2:8+ml]) == crc
+    return mx == MAP_MAX and 8 <= ml <= MAP_MAX - 8 and ml % 4 == 0 and crc16_modbus(region[2:8+ml]) == crc
 
 
 def userif_partition(layout):
@@ -195,7 +196,8 @@ def migrate_userif(layout):
     u = layout.image[start:start+size]
     require(record_size_of(u) == 0x38, 'USERIF does not hold a 0x38-byte settings record')
     require(all(b == 0xff for b in u[0x0e:0x20]), 'Unexpected data in the reserved span of the settings record')
-    require(all(b == 0xff for b in u[SECTOR-RECORD_GROWTH:SECTOR]), 'No room at the end of the settings sector')
+    require(all(b == 0xff for b in u[0x38+MAPS*MAP_MAX:SECTOR]), 'Unexpected data after the list maps')
+    require(u[0x33] != 0, 'The settings byte that becomes the divisor is zero')
     for i in range(MAPS):
         region = u[0x38+i*MAP_MAX:0x38+(i+1)*MAP_MAX]
         require(valid_map(region) or all(b == 0xff for b in region), f'List map {i} is neither valid nor erased')
