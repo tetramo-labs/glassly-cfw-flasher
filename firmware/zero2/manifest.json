@@ -2,13 +2,13 @@
   "files": {
     "glassly-zero2-v1.08.dat": {
       "size": 124472,
-      "sha256": "a64e0b6e96ee9e8d2ea70448255554cf98b32a68cf9b8bfe5345c977da1228be",
-      "source": "tetramo-labs/glassly-8bitdo-zero2-cfw@4556626f6a327986c761a1ba7d32ad556c361a6c tools/build_buttons_probe.py package (buttons-probe, flashed 2026-11-05)"
+      "sha256": "007ca4b94e765ba20bfeb7aaaf7728c14a741b6bac821d74932084b8536334a8",
+      "source": "tetramo-labs/glassly-8bitdo-zero2-cfw@a92657c4f988456a5b04c11a169fd2163b78c2f6 tools/build_buttons_probe.py package (steady connected LED revision)"
     },
     "glassly-zero2-v1.08.plain.bin": {
       "size": 73216,
-      "sha256": "bcb8f2e9b65402dccd767be32ae56a19660a25dbd245e56387b1fdae92b1ea54",
-      "source": "tetramo-labs/glassly-8bitdo-zero2-cfw@4556626f6a327986c761a1ba7d32ad556c361a6c tools/build_buttons_probe.py Yichip plaintext"
+      "sha256": "9c93ce2bbf3bba0a4e41e7505e65b4c0deeedb082668ad384e8653aad3333528",
+      "source": "tetramo-labs/glassly-8bitdo-zero2-cfw@a92657c4f988456a5b04c11a169fd2163b78c2f6 tools/build_buttons_probe.py Yichip plaintext"
     },
     "official-zero2-v1.08.dat": {
       "size": 124472,
