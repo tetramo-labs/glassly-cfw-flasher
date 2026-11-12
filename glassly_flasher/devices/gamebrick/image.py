@@ -10,7 +10,7 @@ import struct
 
 from ... import paths
 from ..jieli.vendored import jl_crc16, jl_sfc_cipher
-from .layout import HARDWARE_VERIFIED, LAYOUTS, Layout, classify
+from .layout import APPLICATION_RECORD_SIZE, HARDWARE_VERIFIED, LAYOUTS, Layout, classify, userif_record_size
 
 OEM_SHA = '2fb44f4235bd4ed7183439f31ee2a31fb0052d19dd736e20d1d251fd5e1ff259'
 CUSTOM_APP_SHA = '495ce9131d2cadebd558ec6d5ebfd51b6afa1ba957cba5c7f5dd331fcba9f432'
@@ -62,6 +62,8 @@ def build(original, replacement, original_sha):
     require(jl_crc16(region[area[3]+32:used]) == p11[1], 'P11 CRC mismatch')
     growth = len(replacement)-app[3]
     require(base+used+growth < limit, 'Update exceeds active area')
+    require(growth <= 0 or all(b == 0xff for b in original[base+used:base+used+growth]),
+            'Application growth would overwrite non-erased bytes after the used area')
     updated = region[:app[2]]+replacement+region[app[2]+app[3]:]
     struct.pack_into('<H', updated, 34, jl_crc16(replacement))
     struct.pack_into('<I', updated, 40, len(replacement))
@@ -128,6 +130,11 @@ def plan(current, oem, mode, custom=None, backup=None, flash_id=None, allow_unve
         target = build(current, Layout(backup).application(), sha)
     else:
         raise RuntimeError('Invalid operation')
+    record = userif_record_size(layout)
+    require(record in (APPLICATION_RECORD_SIZE[expected], 'blank'),
+            'The stored settings on this controller were written by firmware with a different settings layout '
+            f'(record size {record if isinstance(record, str) else hex(record)}, the {expected} application expects '
+            f'{APPLICATION_RECORD_SIZE[expected]:#x}); it would misread them and not boot. Nothing was written.')
     require(classify(target) == expected, 'Derived image does not carry the reviewed application')
     require(target[:layout.base] == current[:layout.base] and target[layout.limit:] == current[layout.limit:],
             'Plan would alter bytes outside the application area')

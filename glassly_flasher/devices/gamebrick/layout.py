@@ -138,3 +138,40 @@ def classify(image):
     except (RuntimeError, ValueError, struct.error):
         pass
     return 'unknown'
+
+
+# sizeof(m_storage) of the application that wrote the USERIF settings record, by application build. The
+# record is followed by 0xc8-byte LiteEMF list maps; an application reading a record of the other size
+# loads a map header byte as a divisor and resets in a loop (glassly-gamebrick-mini-cfw
+# docs/no-boot-investigation.md).
+APPLICATION_RECORD_SIZE = {'factory': 0x40, 'stock': 0x40, 'custom': 0x40, 'withdrawn': 0x40, 'factory-2025-09': 0x38}
+MAP_MAX = 0xc8
+
+
+def crc16_modbus(data, crc=0xffff):
+    for b in data:
+        crc ^= b
+        for _ in range(8):
+            crc = (crc >> 1) ^ 0xa001 if crc & 1 else crc >> 1
+    return crc
+
+
+def userif_record_size(layout):
+    """0x38 or 0x40 from where CRC-valid list maps start; 'blank' if USERIF is erased; 'unknown' otherwise."""
+    userif = [e for e in layout.partitions if name(e) == 'USERIF']
+    require(len(userif) == 1, 'No USERIF partition')
+    start, size = userif[0][2], userif[0][3]
+    u = layout.image[start:start+size]
+    if all(b == 0xff for b in u):
+        return 'blank'
+    found = []
+    for record in (0x38, 0x40):
+        for i in range(6):
+            o = record + i*MAP_MAX
+            if o + 8 > len(u):
+                break
+            crc, _, mx, ml = struct.unpack_from('<HHHH', u, o)
+            if mx == MAP_MAX and ml <= MAP_MAX - 8 and crc16_modbus(u[o+2:o+8+ml]) == crc:
+                found.append(record)
+                break
+    return found[0] if len(found) == 1 else 'unknown'

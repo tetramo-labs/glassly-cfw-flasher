@@ -12,7 +12,7 @@ from glassly_flasher.devices.base import FlashError, Reporter
 from glassly_flasher.devices.gamebrick import run
 from glassly_flasher.devices.gamebrick.image import (CUSTOM_APP_SHA, OEM_SHA, classify, digest, glassly_application,
                                                       official_application, plan)
-from glassly_flasher.devices.gamebrick.layout import APPLICATIONS, LAYOUTS, Layout
+from glassly_flasher.devices.gamebrick.layout import APPLICATIONS, LAYOUTS, Layout, userif_record_size
 from glassly_flasher.devices.gamebrick.transport import PAGE, SECTOR, SIZE, program_image, program_with_plan
 from glassly_flasher.devices.jieli.link import INQUIRY
 
@@ -312,6 +312,10 @@ class IineLayoutTests(unittest.TestCase):
     def setUpClass(cls):
         cls.image = TESTER.read_bytes()
         cls.oem = official_application()
+        # The real dump keeps its Sep-format settings; the plan mechanics run on a copy with erased settings.
+        blank = bytearray(cls.image)
+        blank[0x7d000:0x7f000] = b'\xff' * 0x2000
+        cls.blank = bytes(blank)
 
     def test_tester_unit_is_recognised(self):
         self.assertEqual(classify(self.image), 'factory-2025-09')
@@ -321,12 +325,12 @@ class IineLayoutTests(unittest.TestCase):
                                           (0x7d000, 0x7f000), (0x7f000, 0x80000)])
 
     def test_plans_keep_everything_outside_the_application_area(self):
-        install = plan(self.image, self.oem, 'install', allow_unverified=True)
+        install = plan(self.blank, self.oem, 'install', allow_unverified=True)
         target = install['target']
         self.assertEqual((install['state'], classify(target)), ('factory-2025-09', 'custom'))
         self.assertEqual(Layout(target).application(), glassly_application())
-        self.assertEqual(target[:0x2000], self.image[:0x2000])
-        self.assertEqual(target[0x34000:], self.image[0x34000:])
+        self.assertEqual(target[:0x2000], self.blank[:0x2000])
+        self.assertEqual(target[0x34000:], self.blank[0x34000:])
         self.assertTrue(install['changed_sectors'] and all(0x2000 <= a < 0x34000 for a in install['changed_sectors']))
         self.assertEqual(plan(target, self.oem, 'install', allow_unverified=True)['changed_sectors'], [])
         restore = plan(target, self.oem, 'restore', allow_unverified=True)
@@ -334,7 +338,7 @@ class IineLayoutTests(unittest.TestCase):
         self.assertEqual(Layout(restore['target']).application(), self.oem)
 
     def test_run_refuses_install_and_restore_but_restores_the_backup(self):
-        flashed = plan(self.image, self.oem, 'install', allow_unverified=True)['target']
+        flashed = plan(self.blank, self.oem, 'install', allow_unverified=True)['target']
         for mode in ('install', 'restore'):
             device = FakeBD19(flashed, absent_polls=1)
             with tempfile.TemporaryDirectory() as folder:
@@ -343,11 +347,27 @@ class IineLayoutTests(unittest.TestCase):
             self.assertEqual(device.writes(), [])
         device = FakeBD19(flashed, absent_polls=1)
         with tempfile.TemporaryDirectory() as folder:
-            report = quiet(run, 'restore-backup', Path(folder), Recorder(), link=device, backup=self.image)
+            report = quiet(run, 'restore-backup', Path(folder), Recorder(), link=device, backup=self.blank)
         self.assertTrue(report['full_readback_verified'])
         self.assertEqual(report['target_state'], 'factory-2025-09')
-        self.assertEqual(bytes(device.flash), self.image, 'the exact original returns')
+        self.assertEqual(bytes(device.flash), self.blank, 'the exact original returns')
         self.assertEqual(device.erased[-1], 0x2000)
         with tempfile.TemporaryDirectory() as folder:
             with self.assertRaisesRegex(FlashError, 'not a complete read of a known'):
                 quiet(run, 'restore-backup', Path(folder), Recorder(), link=FakeBD19(flashed), backup=bytes(SIZE))
+
+    def test_settings_record_format_refuses_the_application_that_bricked_the_tester(self):
+        self.assertEqual(userif_record_size(Layout(self.image)), 0x38)
+        self.assertEqual(userif_record_size(Layout(self.blank)), 'blank')
+        for mode in ('install', 'restore'):
+            with self.assertRaisesRegex(RuntimeError, 'different settings layout.*record size 0x38.*expects 0x40'):
+                plan(self.image, self.oem, mode, flash_id=0xcd7013, allow_unverified=True)
+        flashed = plan(self.blank, self.oem, 'install', allow_unverified=True)['target']
+        with_old_settings = flashed[:0x7d000] + self.image[0x7d000:0x7f000] + flashed[0x7f000:]
+        back = plan(with_old_settings, self.oem, 'restore-backup', backup=self.image)
+        self.assertEqual((back['target_state'], back['target']), ('factory-2025-09', self.image))
+        device = FakeBD19(with_old_settings, absent_polls=1)
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(FlashError, 'different settings layout.*record size 0x38.*expects 0x40'):
+                quiet(run, 'restore-backup', Path(folder), Recorder(), link=device, backup=flashed)
+        self.assertEqual(device.writes(), [])
