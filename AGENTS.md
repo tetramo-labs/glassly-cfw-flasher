@@ -27,12 +27,12 @@ be relaxed to get past a refusal.
 - **Every write mode keeps the way back.** Backups are taken before any erase and the app can
   restore a controller's own earlier backup; a session's `flash-pass1.bin` is the recovery image
   of record. Never add a mode that writes without a backup.
-- **Documented exception: MemoMind One.** Its stock firmware has no command to read its flash, and
-  the official image has never been flashed back through its updater on hardware, so Install has no
-  way back and Restore is not offered. The update itself is the vendor's own staged, CRC-checked OTA
-  (an interrupted transfer leaves the old firmware booting), and the identity gate admits only the
-  exact model, hardware, firmware and Glassly revisions the research captures show were flashed from.
-  Do not widen it, and do not add Restore until the official image has gone back on a developer's unit.
+- **Documented exception: MemoMind One.** Its stock firmware has no command to read its flash, so
+  Back up records identity only. Restore sends the vendor's own 1.0.3.127 image (the one the MemoMind
+  app installed on the developer's glasses, replayed byte for byte in the tests) through the same
+  staged, CRC-checked OTA; this app has not yet run that path on glasses, so the first restore happens
+  on the developer's pair. The identity gate admits only the exact model, hardware, firmware and
+  Glassly revisions the research captures show were flashed from; do not widen it.
 - **Refusals name what was seen.** Identity refusals print the values the controller reported
   (flash part, layout, application build) so a new kind can be reviewed from the message alone.
 

@@ -13,6 +13,9 @@ CFW = 'memomind/glassly-memomind-one-cfw-25.bin'
 CFW_SHA256 = '9cdd04786fceee283c30dafc20a01d680894d60026fdc78dbb7a8195fe54fae1'
 CFW_SIZE = 2243544
 CFW_REVISION = 25
+STOCK = 'memomind/official-memomind-one-1.0.3.127.bin'
+STOCK_SHA256 = '08ff64abb1fc66c12779bbc2f34d44eeabf8a9433bb0089ca842245b64acf712'
+STOCK_SIZE = 2185697
 
 OUTER_SIZE = 18
 STREAM_START = 0x96
@@ -83,9 +86,17 @@ def check_container(data):
                 and load == struct.unpack_from('<I', raw, 12)[0], f'component {index} disagrees with the partitions')
 
 
-def load_cfw():
-    data = paths.firmware(CFW)
-    if len(data) != CFW_SIZE or hashlib.sha256(data).hexdigest() != CFW_SHA256:
+def load_image(relative, sha256, size):
+    data = paths.firmware(relative)
+    if len(data) != size or hashlib.sha256(data).hexdigest() != sha256:
         raise FlashError('Refusing an unreviewed MemoMind firmware image')
     check_container(data)
     return data
+
+
+def load_cfw():
+    return load_image(CFW, CFW_SHA256, CFW_SIZE)
+
+
+def load_stock():
+    return load_image(STOCK, STOCK_SHA256, STOCK_SIZE)

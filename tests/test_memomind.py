@@ -15,7 +15,7 @@ from glassly_flasher.devices import DEVICES
 from glassly_flasher.devices import memomind
 from glassly_flasher.devices.base import Cancelled, FlashError, Reporter
 from glassly_flasher.devices.memomind import Session, protocol, rfcomm, run
-from glassly_flasher.devices.memomind.image import CFW_SHA256, check_container, load_cfw
+from glassly_flasher.devices.memomind.image import CFW_SHA256, STOCK_SHA256, check_container, load_cfw, load_stock
 from glassly_flasher.devices.memomind.protocol import (OTA_MAGIC, GmSession, GmStream, OtaStream, OtaTransaction,
                                                        ProtocolError, check_identity, encode_ota, gm_frame,
                                                        installed_revision)
@@ -65,8 +65,9 @@ class FakeGlasses:
     back as revision 25 after a reboot when the stage equals the bundled image."""
 
     def __init__(self, image, revision=None, identity=None, capabilities=None, cursor=0, entry=None,
-                 pacing_after=None, pacing_value=2000, bad_ack_at=None, boot_unreachable=0):
+                 pacing_after=None, pacing_value=2000, bad_ack_at=None, boot_unreachable=0, boots_as=25):
         self.image = image
+        self.boots_as = boots_as
         self.revision = revision
         self.identity = dict(identity or IDENTITY)
         self.capabilities = capabilities
@@ -152,7 +153,7 @@ class FakeGlasses:
             assert params == b'\x00'
             self.rebooted = True
             if bytes(self.stage) == self.image[18:]:
-                self.revision = 25
+                self.revision = self.boots_as
             return ota_reply(3, sequence, b'\x00')
         raise AssertionError(f'Unexpected OTA command {command:#04x}')
 
@@ -331,12 +332,12 @@ class ImageTests(unittest.TestCase):
         with self.assertRaisesRegex(FlashError, 'CRC32'):
             check_container(bytes(image))
 
-    def test_registry_offers_no_restore(self):
-        self.assertEqual(DEVICES['memomind'].modes, ('install', 'backup'))
+    def test_registry_offers_install_restore_and_backup(self):
+        self.assertEqual(DEVICES['memomind'].modes, ('install', 'restore', 'backup'))
         self.assertEqual(DEVICES['memomind'].elevate, frozenset())
-        with tempfile.TemporaryDirectory() as folder:
-            with self.assertRaisesRegex(FlashError, 'does not support restore'):
-                run('restore', Path(folder), Recorder(), link=FakeRadio(None))
+        stock = load_stock()
+        self.assertEqual((len(stock), hashlib.sha256(stock).hexdigest()), (2185697, STOCK_SHA256))
+        self.assertNotEqual(stock, load_cfw())
 
 
 class InstallTests(unittest.TestCase):
@@ -505,6 +506,57 @@ class InstallTests(unittest.TestCase):
         self.assertEqual([e for e in radio.log if e[0] != 'sleep'], [])
 
 
+class RestoreTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.stock = load_stock()
+
+    def glasses(self, **kwargs):
+        return FakeGlasses(self.stock, boots_as=None, **kwargs)
+
+    def test_restore_from_revision_25(self):
+        glasses = self.glasses(revision=25)
+        radio = FakeRadio(glasses)
+        reporter = Recorder()
+        result, files = run_in('restore', radio, reporter)
+        self.assertEqual(bytes(glasses.stage), self.stock[18:])
+        self.assertEqual((result['state'], result['booted_version'], result['installed_before'], result['image_sha256']),
+                         ('restored', 'official firmware 1.0.3.127', 'GLASSLYCFW/25', STOCK_SHA256))
+        self.assertEqual(result['transferred_range'], [18, len(self.stock)])
+        self.assertEqual(radio.ota_commands()[:4], [0x02, 0xe1, 0xe2, 0xe3])
+        self.assertEqual(radio.ota_commands()[-2:], [0xe6, 0x03])
+        self.assertEqual(reporter.progressed[-1], (len(self.stock), len(self.stock)))
+        self.assertEqual(sorted(files), ['capabilities.json', 'device-info.json', 'trace.jsonl'])
+
+    def test_restore_from_an_earlier_revision(self):
+        glasses = self.glasses(revision=22)
+        result, _ = run_in('restore', FakeRadio(glasses))
+        self.assertEqual((result['state'], result['booted_version']), ('restored', 'official firmware 1.0.3.127'))
+
+    def test_official_firmware_writes_nothing(self):
+        glasses = self.glasses()
+        radio = FakeRadio(glasses)
+        result, _ = run_in('restore', radio)
+        self.assertEqual((result['state'], result['flash_modified']), ('already installed', False))
+        self.assertEqual(radio.ota_commands(), [])
+        self.assertFalse(glasses.notified)
+
+    def test_unknown_revision_and_identity_refusals_write_nothing(self):
+        for kwargs in ({'revision': 23}, {'revision': 25, 'identity': {**IDENTITY, 'hver': '2.1.3'}}):
+            with self.subTest(**kwargs):
+                glasses = self.glasses(**kwargs)
+                radio = FakeRadio(glasses)
+                with self.assertRaisesRegex(FlashError, 'Nothing was written'):
+                    run_in('restore', radio)
+                self.assertEqual(radio.ota_commands(), [])
+                self.assertFalse(glasses.notified)
+
+    def test_glasses_that_come_back_on_the_wrong_firmware_are_reported(self):
+        glasses = FakeGlasses(self.stock, revision=25, boots_as=22)
+        with self.assertRaisesRegex(FlashError, 'restarted on GLASSLYCFW/22 instead of official firmware 1.0.3.127'):
+            run_in('restore', FakeRadio(glasses))
+
+
 class BackupTests(unittest.TestCase):
     def test_backup_records_identity_and_writes_nothing(self):
         glasses = FakeGlasses(load_cfw(), revision=22)
@@ -663,7 +715,7 @@ class HardwareReplayTests(unittest.TestCase):
         radio = ScriptRadio(None, identity['mac'], [('normal', lambda: control), ('ota', lambda: ota)])
         with tempfile.TemporaryDirectory() as folder, (Path(folder) / 'trace.jsonl').open('x') as trace:
             result = Session(radio, Path(folder), Recorder(), trace).flash(identity['mac'], IMAGE_18.read_bytes(),
-                                                                          identity)
+                                                                          identity, 'install', 'GLASSLYCFW/18')
         self.assertTrue(ota.finished())
         self.assertEqual((result['resumed_from'], result['blocks'], result['chunks'], result['transferred_range']),
                          (1186912, 260, 1819, [1186912, 2251153]))

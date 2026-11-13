@@ -67,8 +67,8 @@ DEVICES = {d.key: d for d in [
         key='memomind',
         name='MemoMind One',
         supported='MemoMind One smart glasses (model H001Y, hardware 2.1.2) on official firmware 1.0.3.127 '
-                  'or on an earlier Glassly revision, over this computer\'s Bluetooth. There is no way '
-                  'back to the official firmware yet, and the backup records the glasses\' identity only: their '
+                  'or on a Glassly revision, over this computer\'s Bluetooth. Restore sends the official 1.0.3.127 '
+                  'firmware through the same updater. The backup records the glasses\' identity only: their '
                   'firmware cannot be read out.',
         update_mode='Charge the glasses and switch them on. Disconnect them from the MemoMind app and switch off '
                     'Bluetooth on the phone they use. Then pair them with this computer: on a Mac in System Settings '
@@ -77,12 +77,13 @@ DEVICES = {d.key: d for d in [
                     'and keep them close to the computer until the flasher finishes.',
         after_install='Remove the glasses from this computer\'s Bluetooth settings, pair them in your phone\'s '
                       'Bluetooth settings, then add MemoMind One in the Glassly App.',
-        after_restore='',
+        after_restore='Remove the glasses from this computer\'s Bluetooth settings and pair them with the MemoMind '
+                      'app again. They are back on the official firmware.',
         after_backup='Nothing was written. The glasses\' identity was recorded in the backup folder.',
         module='glassly_flasher.devices.memomind',
         elevate=frozenset(),
-        modes=('install', 'backup'),
-        tested='Installed on one pair of glasses from macOS with the research tool this app is ported from. '
-               'Windows and Linux Bluetooth have not been tried on glasses yet.',
+        tested='Installed on one pair of glasses from macOS with the research tool this app is ported from; the '
+               'official image was put on those glasses by the MemoMind app, not yet by this tool. Windows and Linux '
+               'Bluetooth have not been tried on glasses yet.',
     ),
 ]}

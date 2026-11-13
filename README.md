@@ -14,7 +14,7 @@ against a pinned SHA256 before it goes near a controller.
 | 8BitDo Micro | Official v1.05 | Yes |
 | IINE Gamebrick Mini (L1161 / L1162) | Factory firmware or the official IINE update, 2025 production run only (flash part `cd7113`, two-slot layout). Newer units (flash part `cd7013`, IINE's current layout) are recognised but only backed up; see below | Yes |
 | IINE Mini Retro Ananke Gen 2, Purple / Gray / Cream Yellow (L1254 / L1255 / L1277) | Official V0900 | Yes |
-| MemoMind One glasses (H001Y, hardware 2.1.2) | Official 1.0.3.127 or 1.0.2.151, or a Glassly revision it has installed over before. No way back to the official firmware yet | Identity only; the firmware cannot be read out |
+| MemoMind One glasses (H001Y, hardware 2.1.2) | Official 1.0.3.127, or a Glassly revision it has installed over before. Restore sends the official 1.0.3.127 image through the same updater; this app has not yet run that on glasses | Identity only; the firmware cannot be read out |
 
 This is experimental firmware. Each controller has been flashed and verified from macOS with the research
 flasher this app is ported from. The app itself, and every Windows and Linux path, has not yet been run
@@ -143,8 +143,8 @@ waits up to ten minutes for them to be paired.
 
 1. Reads the glasses' identity and installed firmware over one connection and saves them to the session folder
    (`device-info.json`, `capabilities.json`). It writes only to glasses that report model H001Y, hardware 2.1.2,
-   front 1.3 and official firmware 1.0.3.127 or 1.0.2.151, with the MAC address they are paired under: the same
-   check the research flasher makes. Glasses already on Glassly firmware are accepted only on a revision the
+   front 1.3 and official firmware 1.0.3.127, with the MAC address they are paired under: the research flasher's
+   check, minus 1.0.2.151, which no Glassly firmware has ever been flashed from. Glasses already on Glassly firmware are accepted only on a revision the
    firmware has been installed over before (1, 3 to 6, 10, 11, 14, 16 to 20 and 22); revision 25 is left alone.
 2. Eight seconds later, on a second connection, it checks the identity again, tells the glasses an update is coming,
    opens their update service and sends the image in the blocks the glasses ask for (about 550 blocks; a few
@@ -163,8 +163,10 @@ glasses still hold the partial transfer, and starts over otherwise. What happens
 the last block, while they check and switch to the new firmware, has not been seen.
 
 **Back up only** reads the identity and installed firmware and writes nothing. The glasses' firmware has no command
-that reads their flash back, so no firmware image is saved. **Put the official firmware back** is not offered: the
-official image has not yet been sent back through the updater on real glasses.
+that reads their flash back, so no firmware image is saved. **Put the official firmware back** sends the official
+1.0.3.127 image, the vendor's own release that the MemoMind app installed on the development glasses, through the
+same updater, from revision 25 or any revision Install accepts, and waits for the glasses to answer as official
+firmware again. This app has not yet run that path on real glasses; the first restore is done on the developer's pair.
 
 ### What has been tested
 
@@ -182,7 +184,7 @@ The same app runs without a window. On Linux:
 sudo ./Glassly-CFW-Flasher-Linux-x86_64 --cli <zero2|micro|gamebrick|ananke> <install|restore|backup> --i-accept-the-risk
 ```
 
-The MemoMind One glasses (`memomind`, `install` or `backup`) need no `sudo` on any system.
+The MemoMind One glasses (`memomind`, `install`, `restore` or `backup`) need no `sudo` on any system.
 
 On macOS the executable is `/Applications/Glassly CFW Flasher.app/Contents/MacOS/Glassly CFW Flasher`; it
 needs `sudo` only for the IINE controllers. The Windows build has no console, so on Windows run the command

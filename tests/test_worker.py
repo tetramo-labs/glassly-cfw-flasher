@@ -45,9 +45,7 @@ class WorkerTests(unittest.TestCase):
     def test_registry_is_complete(self):
         self.assertEqual(set(DEVICES), {'zero2', 'micro', 'gamebrick', 'ananke', 'memomind'})
         for device in DEVICES.values():
-            self.assertIn('install', device.modes)
-            # The official MemoMind One image has not been flashed back through its updater on hardware.
-            self.assertEqual('restore' in device.modes, device.key != 'memomind')
+            self.assertTrue({'install', 'restore'} <= set(device.modes))
 
 
 if __name__ == '__main__':

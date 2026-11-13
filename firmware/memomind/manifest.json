@@ -4,6 +4,11 @@
       "size": 2243544,
       "sha256": "9cdd04786fceee283c30dafc20a01d680894d60026fdc78dbb7a8195fe54fae1",
       "source": "tetramo-labs/glassly-memomind-one-cfw@e56172a347556916a88fb66791771b12072237f9 analysis/ble-link-20261110/image-25-01/firmware.bin (GLASSLYCFW/25, ble-link-001; local build output pinned by analysis/ble-link-20261110/pins.json; flashed with memomind install and boot verified 2026-11-11, analysis/ble-link-20261110/flash-25-01/checkpoint.json)"
+    },
+    "official-memomind-one-1.0.3.127.bin": {
+      "size": 2185697,
+      "sha256": "08ff64abb1fc66c12779bbc2f34d44eeabf8a9433bb0089ca842245b64acf712",
+      "source": "tetramo-labs/glassly-memomind-one-cfw@e56172a3 captures/firmware/ota-1.0.3.127-jhv3_release.bin: the vendor release the MemoMind app installed on the development glasses (captured 2026-11-01, replayed byte for byte in tests/test_memomind.py)"
     }
   }
 }
